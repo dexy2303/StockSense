@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account - StockSense Inventory Management</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card-split">
+            <!-- Left Column: Brand & Security Showcase -->
+            <div class="auth-banner">
+                <div class="auth-banner-header">
+                    <a href="{{ url_for('index') }}" class="brand-logo">
+                        <div class="brand-icon">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                        </div>
+                        <span class="brand-name">Stock<span>Sense</span></span>
+                    </a>
+                </div>
+
+                <div class="auth-banner-body">
+                    <h1 class="auth-banner-title">Join Modern Warehouse Operations</h1>
+                    <p class="auth-banner-desc">Set up your administrator profile to organize facilities, track shipments, and oversee inventory ledgers.</p>
+                    
+                    <ul class="auth-feature-list">
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>Central Stock Audit Ledger</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-lock"></i>
+                            <span>Encrypted Password Hashing</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-database"></i>
+                            <span>Cloud Firestore Collection Storage</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-bolt"></i>
+                            <span>Instant Live Dashboard Activation</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="auth-banner-footer">
+                    <span>StockSense Security</span>
+                    <span>Session-Based Auth</span>
+                </div>
+            </div>
+
+            <!-- Right Column: Signup Form -->
+            <div class="auth-content">
+                <div class="auth-header">
+                    <h2 class="auth-title">Create Account</h2>
+                    <p class="auth-subtitle">Register your operator profile to begin managing your stock facilities.</p>
+                </div>
+
+                <!-- Server-Side Error Alert -->
+                {% if error %}
+                    <div class="auth-alert auth-alert-danger" role="alert" id="server-error-box">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <div>{{ error }}</div>
+                    </div>
+                {% endif %}
+
+                <!-- Client-Side Validation Alert -->
+                <div class="auth-alert auth-alert-danger" id="client-error-box" style="display: none;" role="alert">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div id="client-error-msg"></div>
+                </div>
+
+                <form action="{{ url_for('auth.signup') }}" method="POST" enctype="multipart/form-data" class="auth-form" id="signup-form" novalidate>
+                    <!-- Full Name -->
+                    <div class="auth-field">
+                        <label for="signup-name">Full Name <span class="required">*</span></label>
+                        <div class="auth-input-wrapper">
+                            <i class="fa-regular fa-user auth-input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="signup-name" 
+                                name="full_name" 
+                                class="auth-input" 
+                                placeholder="Alex Morgan" 
+                                value="{{ full_name or '' }}" 
+                                required 
+                                autocomplete="name"
+                                autofocus
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Email Address -->
+                    <div class="auth-field">
+                        <label for="signup-email">Work Email <span class="required">*</span></label>
+                        <div class="auth-input-wrapper">
+                            <i class="fa-regular fa-envelope auth-input-icon"></i>
+                            <input 
+                                type="email" 
+                                id="signup-email" 
+                                name="email" 
+                                class="auth-input" 
+                                placeholder="alex.morgan@company.com" 
+                                value="{{ email or '' }}" 
+                                required 
+                                autocomplete="email"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Password and Confirm Password Row -->
+                    <div class="auth-form-row">
+                        <!-- Password -->
+                        <div class="auth-field">
+                            <label for="signup-password">Password <span class="required">*</span></label>
+                            <div class="auth-input-wrapper">
+                                <i class="fa-solid fa-lock auth-input-icon"></i>
+                                <input 
+                                    type="password" 
+                                    id="signup-password" 
+                                    name="password" 
+                                    class="auth-input" 
+                                    placeholder="Min. 6 chars" 
+                                    required 
+                                    autocomplete="new-password"
+                                >
+                                <button type="button" class="auth-pwd-toggle" id="pwd-toggle-btn-1" aria-label="Toggle password visibility">
+                                    <i class="fa-regular fa-eye" id="pwd-icon-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="auth-field">
+                            <label for="signup-confirm">Confirm Password <span class="required">*</span></label>
+                            <div class="auth-input-wrapper">
+                                <i class="fa-solid fa-shield-halved auth-input-icon"></i>
+                                <input 
+                                    type="password" 
+                                    id="signup-confirm" 
+                                    name="confirm_password" 
+                                    class="auth-input" 
+                                    placeholder="Repeat password" 
+                                    required 
+                                    autocomplete="new-password"
+                                >
+                                <button type="button" class="auth-pwd-toggle" id="pwd-toggle-btn-2" aria-label="Toggle confirm password visibility">
+                                    <i class="fa-regular fa-eye" id="pwd-icon-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Image Upload (Optional) -->
+                    <div class="auth-field">
+                        <label for="signup-avatar-input">Profile Picture <span class="auth-optional-label">(Optional)</span></label>
+                        <div class="auth-avatar-picker">
+                            <div class="auth-avatar-preview-box">
+                                <img src="{{ url_for('static', filename='img/default-avatar.svg') }}" id="signup-avatar-preview" alt="Avatar Preview" class="auth-avatar-preview-img">
+                            </div>
+                            <div class="auth-avatar-controls">
+                                <label for="signup-avatar-input" class="auth-avatar-upload-btn" id="signup-avatar-trigger">
+                                    <i class="fa-solid fa-camera"></i>
+                                    <span id="signup-avatar-label">Upload Photo</span>
+                                </label>
+                                <input 
+                                    type="file" 
+                                    id="signup-avatar-input" 
+                                    name="avatar" 
+                                    accept="image/png, image/jpeg, image/jpg, image/webp" 
+                                    class="auth-avatar-hidden-input"
+                                >
+                                <span class="auth-field-hint">JPG, PNG, or WEBP (Max 5 MB). Defaults to system avatar.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-btn-submit" id="btn-signup-submit">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Create Operator Account</span>
+                    </button>
+                </form>
+
+                <!-- Divider -->
+                <div class="auth-divider">
+                    <span>or continue with</span>
+                </div>
+
+                <!-- Google OAuth Button -->
+                <a href="{{ url_for('auth.google_login') }}" class="auth-btn-google" id="btn-google-signup">
+                    <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                    </svg>
+                    <span>Sign up with Google</span>
+                </a>
+
+                <!-- Switch to Login -->
+                <div class="auth-switch">
+                    <span>Already have an account?</span>
+                    <a href="{{ url_for('auth.login') }}">Sign in here</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side validation and toggles -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const signupForm = document.getElementById('signup-form');
+            const nameInput = document.getElementById('signup-name');
+            const emailInput = document.getElementById('signup-email');
+            const pwdInput = document.getElementById('signup-password');
+            const confirmInput = document.getElementById('signup-confirm');
+            const submitBtn = document.getElementById('btn-signup-submit');
+            const errorBox = document.getElementById('client-error-box');
+            const errorMsg = document.getElementById('client-error-msg');
+
+            // Password toggles
+            const setupToggle = (toggleId, inputId, iconId) => {
+                const btn = document.getElementById(toggleId);
+                const input = document.getElementById(inputId);
+                const icon = document.getElementById(iconId);
+                if (btn && input && icon) {
+                    btn.addEventListener('click', () => {
+                        const isPwd = input.getAttribute('type') === 'password';
+                        input.setAttribute('type', isPwd ? 'text' : 'password');
+                        icon.classList.toggle('fa-eye', !isPwd);
+                        icon.classList.toggle('fa-eye-slash', isPwd);
+                    });
+                }
+            };
+
+            setupToggle('pwd-toggle-btn-1', 'signup-password', 'pwd-icon-1');
+            setupToggle('pwd-toggle-btn-2', 'signup-confirm', 'pwd-icon-2');
+
+            // Avatar file picker & live preview
+            const avatarInput = document.getElementById('signup-avatar-input');
+            const avatarPreview = document.getElementById('signup-avatar-preview');
+            const avatarLabel = document.getElementById('signup-avatar-label');
+            const defaultAvatarSrc = "{{ url_for('static', filename='img/default-avatar.svg') }}";
+
+            if (avatarInput) {
+                avatarInput.addEventListener('change', () => {
+                    const file = avatarInput.files && avatarInput.files[0];
+                    if (!file) return;
+
+                    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                    if (!validTypes.includes(file.type.toLowerCase())) {
+                        if (errorBox && errorMsg) {
+                            errorMsg.textContent = 'Invalid file type. Please upload a JPG, PNG, or WEBP image.';
+                            errorBox.style.display = 'flex';
+                        }
+                        avatarInput.value = '';
+                        if (avatarPreview) avatarPreview.src = defaultAvatarSrc;
+                        if (avatarLabel) avatarLabel.textContent = 'Upload Photo';
+                        return;
+                    }
+
+                    if (file.size > 5 * 1024 * 1024) {
+                        if (errorBox && errorMsg) {
+                            errorMsg.textContent = 'Selected image exceeds the 5 MB maximum size limit.';
+                            errorBox.style.display = 'flex';
+                        }
+                        avatarInput.value = '';
+                        if (avatarPreview) avatarPreview.src = defaultAvatarSrc;
+                        if (avatarLabel) avatarLabel.textContent = 'Upload Photo';
+                        return;
+                    }
+
+                    if (errorBox) errorBox.style.display = 'none';
+
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        if (avatarPreview) avatarPreview.src = evt.target.result;
+                        if (avatarLabel) {
+                            const fname = file.name.length > 18 ? file.name.substring(0, 15) + '...' : file.name;
+                            avatarLabel.textContent = fname;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            // Client-side validations
+            if (signupForm) {
+
+                signupForm.addEventListener('submit', (e) => {
+                    const name = nameInput.value.trim();
+                    const email = emailInput.value.trim();
+                    const pwd = pwdInput.value.trim();
+                    const confirm = confirmInput.value.trim();
+
+                    const showError = (message, focusEl) => {
+                        e.preventDefault();
+                        if (errorBox && errorMsg) {
+                            errorMsg.textContent = message;
+                            errorBox.style.display = 'flex';
+                        }
+                        if (focusEl) focusEl.focus();
+                    };
+
+                    if (!name || name.length < 2) {
+                        return showError('Please enter your full name (at least 2 characters).', nameInput);
+                    }
+
+                    if (!email || !email.includes('@') || !email.includes('.')) {
+                        return showError('Please enter a valid work email address.', emailInput);
+                    }
+
+                    if (!pwd || pwd.length < 6) {
+                        return showError('Password must be at least 6 characters long.', pwdInput);
+                    }
+
+                    if (pwd !== confirm) {
+                        return showError('Passwords do not match. Please verify both entries.', confirmInput);
+                    }
+
+                    // Animate submit button
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Creating account...</span>';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

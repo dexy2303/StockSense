@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <rect width="200" height="200" rx="100" fill="url(#avatarGrad)"/>
+  <!-- Head -->
+  <circle cx="100" cy="74" r="38" fill="#ffffff" fill-opacity="0.95"/>
+  <!-- Torso / Shoulders -->
+  <path d="M38 170 C38 126, 68 122, 100 122 C132 122, 162 126, 162 170 C162 174, 158 178, 154 178 C120 182, 80 182, 46 178 C42 178, 38 174, 38 170 Z" fill="#ffffff" fill-opacity="0.95"/>
+</svg>

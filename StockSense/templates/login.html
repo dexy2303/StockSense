@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - StockSense Inventory Management</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card-split">
+            <!-- Left Column: Brand & Feature Showcase -->
+            <div class="auth-banner">
+                <div class="auth-banner-header">
+                    <a href="{{ url_for('index') }}" class="brand-logo">
+                        <div class="brand-icon">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                        </div>
+                        <span class="brand-name">Stock<span>Sense</span></span>
+                    </a>
+                </div>
+
+                <div class="auth-banner-body">
+                    <h1 class="auth-banner-title">Enterprise Inventory Operations Platform</h1>
+                    <p class="auth-banner-desc">Real-time stock balance, multi-facility order fulfillment, and automated supply replenishment.</p>
+                    
+                    <ul class="auth-feature-list">
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                            <span>Multi-Warehouse Transfers & Dispatch</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>Real-Time Low Stock Safety Alerts</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-cloud"></i>
+                            <span>Google Cloud Firestore Data Persistence</span>
+                        </li>
+                        <li class="auth-feature-item">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Session Security & Role-Based Access</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="auth-banner-footer">
+                    <span>StockSense Cloud v1.0</span>
+                    <span>&copy; 2026 Enterprise Hub</span>
+                </div>
+            </div>
+
+            <!-- Right Column: Login Form -->
+            <div class="auth-content">
+                <div class="auth-header">
+                    <h2 class="auth-title">Welcome Back</h2>
+                    <p class="auth-subtitle">Enter your corporate credentials to access your inventory control dashboard.</p>
+                </div>
+
+                <!-- Flash & Server Validation Alerts -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="auth-alert auth-alert-{{ 'danger' if category == 'error' else category }}" role="alert">
+                                <i class="fa-solid fa-{{ 'triangle-exclamation' if category in ['danger', 'error'] else 'circle-check' }}"></i>
+                                <div>{{ message }}</div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% if error %}
+                    <div class="auth-alert auth-alert-danger" role="alert" id="server-error-box">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <div>{{ error }}</div>
+                    </div>
+                {% endif %}
+
+                <div class="auth-alert auth-alert-danger" id="client-error-box" style="display: none;" role="alert">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <div id="client-error-msg"></div>
+                </div>
+
+                <form action="{{ url_for('auth.login') }}" method="POST" class="auth-form" id="login-form" novalidate>
+                    <!-- Email Input -->
+                    <div class="auth-field">
+                        <label for="login-email">Corporate Email <span class="required">*</span></label>
+                        <div class="auth-input-wrapper">
+                            <i class="fa-regular fa-envelope auth-input-icon"></i>
+                            <input 
+                                type="email" 
+                                id="login-email" 
+                                name="email" 
+                                class="auth-input" 
+                                placeholder="name@company.com" 
+                                value="{{ email or '' }}" 
+                                required 
+                                autocomplete="email"
+                                autofocus
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Password Input -->
+                    <div class="auth-field">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label for="login-password">Password <span class="required">*</span></label>
+                        </div>
+                        <div class="auth-input-wrapper">
+                            <i class="fa-solid fa-lock auth-input-icon"></i>
+                            <input 
+                                type="password" 
+                                id="login-password" 
+                                name="password" 
+                                class="auth-input" 
+                                placeholder="••••••••••••" 
+                                required 
+                                autocomplete="current-password"
+                            >
+                            <button type="button" class="auth-pwd-toggle" id="pwd-toggle-btn" aria-label="Toggle password visibility">
+                                <i class="fa-regular fa-eye" id="pwd-toggle-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-btn-submit" id="btn-login-submit">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        <span>Sign In to StockSense</span>
+                    </button>
+                </form>
+
+                <!-- Divider -->
+                <div class="auth-divider">
+                    <span>or continue with</span>
+                </div>
+
+                <!-- Google OAuth Button -->
+                <a href="{{ url_for('auth.google_login') }}" class="auth-btn-google" id="btn-google-login">
+                    <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                    </svg>
+                    <span>Continue with Google</span>
+                </a>
+
+                <!-- Hackathon Demo Credentials Helper -->
+                <div class="auth-demo-box">
+                    <div class="auth-demo-text">
+                        <span class="auth-demo-label">
+                            <i class="fa-solid fa-key"></i> Demo Admin Account
+                            <span class="auth-demo-badge">PRE-SEEDED</span>
+                        </span>
+                        <span class="auth-demo-creds">admin@stocksense.com • Admin@123</span>
+                    </div>
+                    <button type="button" class="auth-demo-btn" id="btn-fill-demo">Fill Demo</button>
+                </div>
+
+                <!-- Switch to Signup -->
+                <div class="auth-switch">
+                    <span>Don't have a warehouse account?</span>
+                    <a href="{{ url_for('auth.signup') }}">Create an account</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side validation and password toggle -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const pwdInput = document.getElementById('login-password');
+            const pwdToggle = document.getElementById('pwd-toggle-btn');
+            const pwdIcon = document.getElementById('pwd-toggle-icon');
+            const demoBtn = document.getElementById('btn-fill-demo');
+            const emailInput = document.getElementById('login-email');
+            const loginForm = document.getElementById('login-form');
+            const submitBtn = document.getElementById('btn-login-submit');
+            const errorBox = document.getElementById('client-error-box');
+            const errorMsg = document.getElementById('client-error-msg');
+
+            // Toggle password visibility
+            if (pwdToggle && pwdInput && pwdIcon) {
+                pwdToggle.addEventListener('click', () => {
+                    const isPwd = pwdInput.getAttribute('type') === 'password';
+                    pwdInput.setAttribute('type', isPwd ? 'text' : 'password');
+                    pwdIcon.classList.toggle('fa-eye', !isPwd);
+                    pwdIcon.classList.toggle('fa-eye-slash', isPwd);
+                });
+            }
+
+            // Quick demo filler
+            if (demoBtn && emailInput && pwdInput) {
+                demoBtn.addEventListener('click', () => {
+                    emailInput.value = 'admin@stocksense.com';
+                    pwdInput.value = 'Admin@123';
+                    if (errorBox) errorBox.style.display = 'none';
+                    emailInput.focus();
+                });
+            }
+
+            // Client-side validation on form submit
+            if (loginForm) {
+                loginForm.addEventListener('submit', (e) => {
+                    const email = emailInput.value.trim();
+                    const password = pwdInput.value.trim();
+
+                    if (!email || !password) {
+                        e.preventDefault();
+                        if (errorBox && errorMsg) {
+                            errorMsg.textContent = 'Please enter both your email address and password.';
+                            errorBox.style.display = 'flex';
+                        }
+                        if (!email) emailInput.focus();
+                        else pwdInput.focus();
+                        return;
+                    }
+
+                    if (!email.includes('@') || !email.includes('.')) {
+                        e.preventDefault();
+                        if (errorBox && errorMsg) {
+                            errorMsg.textContent = 'Please enter a valid email address.';
+                            errorBox.style.display = 'flex';
+                        }
+                        emailInput.focus();
+                        return;
+                    }
+
+                    // Animate submit button
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Authenticating...</span>';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
