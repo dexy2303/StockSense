@@ -141,6 +141,11 @@
 
                     <!-- Header Quick Actions -->
                     <div class="header-actions">
+                        <!-- Dark Mode Toggle Button -->
+                        <button class="header-icon-btn" id="theme-toggle-btn" aria-label="Toggle Dark Mode" title="Toggle Theme (Light/Dark)">
+                            <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
+                        </button>
+
                         <!-- Notification Button -->
                         <div class="dropdown-wrapper">
                             <button class="header-icon-btn" id="notification-btn" aria-label="Notifications" title="Notifications">
@@ -226,6 +231,38 @@
                     <div id="filter-banner" class="filter-banner" style="display: none;">
                         <span><i class="fa-solid fa-filter"></i> Filtering results matching: <strong id="filter-query-text"></strong></span>
                         <button id="reset-filter-btn" class="banner-reset-btn">Reset Filter</button>
+                    </div>
+
+                    <!-- Dashboard Quick Action Navigation Buttons -->
+                    <div class="dashboard-quick-actions">
+                        <button type="button" class="quick-action-btn" id="btn-quick-receive" data-target-view="Receive Stock">
+                            <div class="quick-action-icon green"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                            <div class="quick-action-text">
+                                <strong>Receive Stock</strong>
+                                <span>Inbound supplier deliveries</span>
+                            </div>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="btn-quick-delivery" data-target-view="Delivery Orders">
+                            <div class="quick-action-icon red"><i class="fa-solid fa-truck-fast"></i></div>
+                            <div class="quick-action-text">
+                                <strong>Create Delivery</strong>
+                                <span>Dispatch customer orders</span>
+                            </div>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="btn-quick-transfer" data-target-view="Transfers">
+                            <div class="quick-action-icon blue"><i class="fa-solid fa-right-left"></i></div>
+                            <div class="quick-action-text">
+                                <strong>Transfer Stock</strong>
+                                <span>Move between facilities</span>
+                            </div>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="btn-quick-adjustment" data-target-view="Stock Adjustments">
+                            <div class="quick-action-icon purple"><i class="fa-solid fa-sliders"></i></div>
+                            <div class="quick-action-text">
+                                <strong>Adjust Stock</strong>
+                                <span>Reconcile discrepancies</span>
+                            </div>
+                        </button>
                     </div>
 
                     <!-- Metric Cards Grid -->
@@ -1119,6 +1156,1233 @@
                             </table>
                         </div>
                     </section>
+                </div>
+
+                <!-- ============================================================
+                     VIEW 5: TRANSFERS (INTER-WAREHOUSE INVENTORY MOVEMENTS)
+                     ============================================================ -->
+                <div id="view-transfers" class="page-view" style="display: none;">
+                    
+                    <!-- Transfers Operations Metrics Bar -->
+                    <div class="products-metrics-bar">
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon blue"><i class="fa-solid fa-right-left"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Total Transfers</span>
+                                <strong class="mini-metric-val" id="transfers-stat-count">5</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon green"><i class="fa-solid fa-boxes-stacked"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Units Relocated</span>
+                                <strong class="mini-metric-val" id="transfers-stat-units">90</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon amber"><i class="fa-solid fa-truck-moving"></i></div>
+                            <div>
+                                <span class="mini-metric-label">In Transit</span>
+                                <strong class="mini-metric-val" id="transfers-stat-transit">1</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon teal"><i class="fa-solid fa-warehouse"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Active Depots</span>
+                                <strong class="mini-metric-val" id="transfers-stat-depots">2</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Form & Live Summary Layout -->
+                    <div class="transfer-split-layout">
+                        <!-- Left Column: Transfer Form Card -->
+                        <section class="card transfer-form-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <h2 class="card-title">Inter-Warehouse Transfer</h2>
+                                    <span class="card-subtitle">Relocate inventory between warehouses or production floor storage</span>
+                                </div>
+                                <div class="receipt-status-toggle">
+                                    <label class="status-toggle-option">
+                                        <input type="radio" name="transfer-status" value="Completed" checked>
+                                        <span class="status-toggle-label"><i class="fa-solid fa-circle-check"></i> Completed</span>
+                                    </label>
+                                    <label class="status-toggle-option">
+                                        <input type="radio" name="transfer-status" value="In Transit">
+                                        <span class="status-toggle-label"><i class="fa-solid fa-truck-moving"></i> In Transit</span>
+                                    </label>
+                                    <label class="status-toggle-option">
+                                        <input type="radio" name="transfer-status" value="Draft">
+                                        <span class="status-toggle-label"><i class="fa-solid fa-file-lines"></i> Draft</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="form-alert-box" id="transfer-form-error" style="display: none;"></div>
+
+                                <form id="form-transfer-order" novalidate>
+                                    <div class="form-grid">
+                                        <!-- Product Dropdown -->
+                                        <div class="form-group span-2">
+                                            <label for="transfer-product">Product <span class="required">*</span></label>
+                                            <select id="transfer-product" name="productId" class="form-select" required>
+                                                <option value="">Select Product</option>
+                                            </select>
+                                            <span class="field-error" id="err-transfer-product"></span>
+                                        </div>
+
+                                        <!-- Source Warehouse Dropdown -->
+                                        <div class="form-group">
+                                            <label for="transfer-source">Source Warehouse <span class="required">*</span></label>
+                                            <select id="transfer-source" name="sourceWarehouse" class="form-select" required>
+                                                <option value="Main Warehouse" selected>Main Warehouse</option>
+                                                <option value="Production Floor">Production Floor</option>
+                                            </select>
+                                            <span class="field-error" id="err-transfer-source"></span>
+                                        </div>
+
+                                        <!-- Destination Warehouse Dropdown -->
+                                        <div class="form-group">
+                                            <label for="transfer-dest">Destination Warehouse <span class="required">*</span></label>
+                                            <select id="transfer-dest" name="destWarehouse" class="form-select" required>
+                                                <option value="Production Floor" selected>Production Floor</option>
+                                                <option value="Main Warehouse">Main Warehouse</option>
+                                            </select>
+                                            <span class="field-error" id="err-transfer-dest"></span>
+                                        </div>
+
+                                        <!-- Quantity Number Input -->
+                                        <div class="form-group">
+                                            <label for="transfer-quantity">Transfer Quantity <span class="required">*</span></label>
+                                            <input type="number" id="transfer-quantity" name="quantity" class="form-input" placeholder="e.g. 25" min="1" required>
+                                            <span class="field-error" id="err-transfer-quantity"></span>
+                                        </div>
+
+                                        <!-- Transfer Date Date Input -->
+                                        <div class="form-group">
+                                            <label for="transfer-date">Transfer Date <span class="required">*</span></label>
+                                            <input type="date" id="transfer-date" name="date" class="form-input" required>
+                                            <span class="field-error" id="err-transfer-date"></span>
+                                        </div>
+
+                                        <!-- Reference Text Input -->
+                                        <div class="form-group span-2">
+                                            <label for="transfer-ref">Transfer Reference / Slip # <span class="required">*</span></label>
+                                            <input type="text" id="transfer-ref" name="reference" class="form-input text-uppercase" placeholder="e.g. TR-2024-001" required>
+                                            <span class="field-error" id="err-transfer-ref"></span>
+                                        </div>
+
+                                        <!-- Notes Textarea -->
+                                        <div class="form-group span-2">
+                                            <label for="transfer-notes">Notes / Transfer Reason <span class="text-muted">(Optional)</span></label>
+                                            <textarea id="transfer-notes" name="notes" class="form-textarea" rows="2" placeholder="Internal requisition reason, assigned forklift operator, or batch instructions..."></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="receive-form-actions">
+                                        <button type="submit" class="btn btn-primary" id="btn-submit-transfer">
+                                            <i class="fa-solid fa-right-left"></i> Execute Transfer
+                                        </button>
+                                        <button type="button" class="btn btn-outline" id="btn-reset-transfer" title="Reset form">
+                                            <i class="fa-solid fa-rotate-left"></i> Reset
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </section>
+
+                        <!-- Right Column: Transfer Summary Card -->
+                        <aside class="card transfer-summary-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <h2 class="card-title">Transfer Summary</h2>
+                                    <span class="card-subtitle">Real-time internal stock reallocation</span>
+                                </div>
+                                <span class="badge badge-neutral"><i class="fa-solid fa-right-left text-primary"></i> Live Impact</span>
+                            </div>
+
+                            <div class="card-body summary-body">
+                                <!-- Warning 1: Same Warehouse Warning Banner -->
+                                <div class="insufficient-stock-banner" id="transfer-same-warning" style="display: none;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <div>
+                                        <strong>Invalid Transfer Route</strong>
+                                        <p id="transfer-same-warning-text">Source and destination warehouses cannot be the same location.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Warning 2: Insufficient Stock Warning Banner -->
+                                <div class="insufficient-stock-banner" id="transfer-stock-warning" style="display: none;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <div>
+                                        <strong>Insufficient Stock Alert</strong>
+                                        <p id="transfer-stock-warning-text">Transfer quantity exceeds available stock at source warehouse.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Selected Product Box -->
+                                <div class="summary-item-box">
+                                    <div class="summary-label-row">
+                                        <span class="summary-item-title">Selected Product</span>
+                                        <span class="sku-badge" id="transfer-summary-sku">---</span>
+                                    </div>
+                                    <div class="summary-product-val" id="transfer-summary-product">Select a product above</div>
+                                    <span class="summary-category-val" id="transfer-summary-category">Category: ---</span>
+                                </div>
+
+                                <!-- Visual Route Box -->
+                                <div class="transfer-route-box">
+                                    <div class="route-depot-node">
+                                        <span class="node-label">SOURCE WAREHOUSE</span>
+                                        <div class="node-name" id="transfer-summary-source-name">Main Warehouse</div>
+                                    </div>
+                                    <div class="route-arrow-flow">
+                                        <span class="route-qty-badge" id="transfer-summary-flow-qty">0 pcs</span>
+                                        <div class="route-arrow-line">
+                                            <i class="fa-solid fa-arrow-right"></i>
+                                        </div>
+                                    </div>
+                                    <div class="route-depot-node">
+                                        <span class="node-label">DESTINATION WAREHOUSE</span>
+                                        <div class="node-name" id="transfer-summary-dest-name">Production Floor</div>
+                                    </div>
+                                </div>
+
+                                <!-- Before & After Comparison Grid -->
+                                <div class="transfer-comparison-card">
+                                    <div class="comparison-table-header">
+                                        <span>Warehouse</span>
+                                        <span class="text-right">Before</span>
+                                        <span class="text-right">Transfer</span>
+                                        <span class="text-right">After</span>
+                                    </div>
+                                    <div class="comparison-row source-row">
+                                        <div class="depot-name-cell">
+                                            <i class="fa-solid fa-arrow-up-from-bracket text-danger"></i>
+                                            <span id="transfer-source-label">Main Warehouse</span>
+                                        </div>
+                                        <div class="text-right val-before" id="transfer-source-before">0</div>
+                                        <div class="text-right val-delta text-danger" id="transfer-source-delta">-0</div>
+                                        <div class="text-right val-after" id="transfer-source-after">0</div>
+                                    </div>
+                                    <div class="comparison-row dest-row">
+                                        <div class="depot-name-cell">
+                                            <i class="fa-solid fa-arrow-down-to-bracket text-success"></i>
+                                            <span id="transfer-dest-label">Production Floor</span>
+                                        </div>
+                                        <div class="text-right val-before" id="transfer-dest-before">0</div>
+                                        <div class="text-right val-delta text-success" id="transfer-dest-delta">+0</div>
+                                        <div class="text-right val-after" id="transfer-dest-after">0</div>
+                                    </div>
+                                    <div class="comparison-footer">
+                                        <span>Total Stock Across Warehouses:</span>
+                                        <div class="total-stock-conservation">
+                                            <strong id="transfer-total-stock-val">0</strong>
+                                            <span class="badge badge-neutral"><i class="fa-solid fa-check text-success"></i> Unchanged</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="summary-info-notice">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <span>Internal stock movements rebalance local storage bins while preserving global company inventory.</span>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <!-- Bottom Full-Width Section: Recent Transfers Table -->
+                    <section class="card table-card full-width-card">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h2 class="card-title">Recent Transfers</h2>
+                                <span class="card-subtitle">Chronological ledger of internal inventory movements between depot facilities</span>
+                            </div>
+
+                            <div class="products-toolbar">
+                                <!-- Search Transfers -->
+                                <div class="toolbar-search">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="transfers-search-input" placeholder="Search by ID, product, route, ref..." autocomplete="off">
+                                    <button class="clear-input-btn" id="transfers-search-clear" style="display: none;" title="Clear search">
+                                        <i class="fa-solid fa-circle-xmark"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Status Filter -->
+                                <div class="toolbar-filter-select">
+                                    <i class="fa-solid fa-filter select-icon"></i>
+                                    <select id="transfers-status-filter" aria-label="Filter by Status">
+                                        <option value="ALL">All Statuses</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="In Transit">In Transit</option>
+                                        <option value="Draft">Draft</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table" id="recent-transfers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Transfer ID</th>
+                                        <th>Product</th>
+                                        <th>Source</th>
+                                        <th>Destination</th>
+                                        <th class="text-right">Quantity</th>
+                                        <th>Transfer Date</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transfers-tbody">
+                                    <!-- Rendered dynamically by app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ============================================================
+                     VIEW 6: STOCK ADJUSTMENTS (INVENTORY AUDIT & RECONCILIATION)
+                     ============================================================ -->
+                <div id="view-adjustments" class="page-view" style="display: none;">
+                    
+                    <!-- Adjustments Operations Metrics Bar -->
+                    <div class="products-metrics-bar">
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon blue"><i class="fa-solid fa-sliders"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Total Audits</span>
+                                <strong class="mini-metric-val" id="adjustments-stat-count">5</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon amber"><i class="fa-solid fa-scale-unbalanced"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Net Variance</span>
+                                <strong class="mini-metric-val" id="adjustments-stat-variance">-7</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon green"><i class="fa-solid fa-circle-check"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Completed</span>
+                                <strong class="mini-metric-val" id="adjustments-stat-completed">4</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon purple"><i class="fa-solid fa-clipboard-check"></i></div>
+                            <div>
+                                <span class="mini-metric-label">In Review</span>
+                                <strong class="mini-metric-val" id="adjustments-stat-reviewed">1</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Form & Live Summary Layout -->
+                    <div class="adjustment-split-layout">
+                        <!-- Left Column: Stock Adjustment Form Card -->
+                        <section class="card adjustment-form-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <h2 class="card-title">Stock Count &amp; Reconciliation</h2>
+                                    <span class="card-subtitle">Correct discrepancies between recorded system quantities and verified physical counts</span>
+                                </div>
+                                <div class="receipt-status-toggle">
+                                    <label class="status-toggle-option">
+                                        <input type="radio" name="adjustment-status" value="Completed" checked>
+                                        <span class="status-toggle-label"><i class="fa-solid fa-circle-check"></i> Completed</span>
+                                    </label>
+                                    <label class="status-toggle-option">
+                                        <input type="radio" name="adjustment-status" value="Reviewed">
+                                        <span class="status-toggle-label"><i class="fa-solid fa-clipboard-check"></i> Reviewed</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="form-alert-box" id="adjustment-form-error" style="display: none;"></div>
+
+                                <form id="form-stock-adjustment" novalidate>
+                                    <div class="form-grid">
+                                        <!-- Product Dropdown -->
+                                        <div class="form-group span-2">
+                                            <label for="adjustment-product">Product <span class="required">*</span></label>
+                                            <select id="adjustment-product" name="productId" class="form-select" required>
+                                                <option value="">Select Product</option>
+                                            </select>
+                                            <span class="field-error" id="err-adjustment-product"></span>
+                                        </div>
+
+                                        <!-- Warehouse Dropdown -->
+                                        <div class="form-group span-2">
+                                            <label for="adjustment-warehouse">Warehouse Location <span class="required">*</span></label>
+                                            <select id="adjustment-warehouse" name="warehouse" class="form-select" required>
+                                                <option value="Main Warehouse" selected>Main Warehouse</option>
+                                                <option value="Production Floor">Production Floor</option>
+                                            </select>
+                                            <span class="field-error" id="err-adjustment-warehouse"></span>
+                                        </div>
+
+                                        <!-- Recorded Quantity (Auto-Filled / Readonly) -->
+                                        <div class="form-group">
+                                            <label for="adjustment-recorded-qty">
+                                                Recorded Quantity <span class="badge badge-neutral" style="font-size: 0.65rem; padding: 0.1rem 0.4rem; margin-left: 0.35rem;">System Balance</span>
+                                            </label>
+                                            <input type="number" id="adjustment-recorded-qty" name="recordedQty" class="form-input form-input-readonly" readonly placeholder="0">
+                                            <span class="field-error" id="err-adjustment-recorded-qty"></span>
+                                        </div>
+
+                                        <!-- Counted Quantity Number Input -->
+                                        <div class="form-group">
+                                            <label for="adjustment-counted-qty">Counted Quantity <span class="required">*</span></label>
+                                            <input type="number" id="adjustment-counted-qty" name="countedQty" class="form-input" placeholder="Enter physical count" min="0" required>
+                                            <span class="field-error" id="err-adjustment-counted-qty"></span>
+                                        </div>
+
+                                        <!-- Adjustment Reason Dropdown -->
+                                        <div class="form-group span-2">
+                                            <label for="adjustment-reason">Adjustment Reason <span class="required">*</span></label>
+                                            <select id="adjustment-reason" name="reason" class="form-select" required>
+                                                <option value="">Select Adjustment Reason</option>
+                                                <option value="Damaged">Damaged</option>
+                                                <option value="Manual Correction">Manual Correction</option>
+                                                <option value="Physical Count Difference">Physical Count Difference</option>
+                                                <option value="Returned Items">Returned Items</option>
+                                                <option value="Lost Inventory">Lost Inventory</option>
+                                            </select>
+                                            <span class="field-error" id="err-adjustment-reason"></span>
+                                        </div>
+
+                                        <!-- Adjustment Date Date Input -->
+                                        <div class="form-group span-2">
+                                            <label for="adjustment-date">Adjustment Date <span class="required">*</span></label>
+                                            <input type="date" id="adjustment-date" name="date" class="form-input" required>
+                                            <span class="field-error" id="err-adjustment-date"></span>
+                                        </div>
+
+                                        <!-- Notes Textarea -->
+                                        <div class="form-group span-2">
+                                            <label for="adjustment-notes">Audit Notes / Explanation <span class="text-muted">(Optional)</span></label>
+                                            <textarea id="adjustment-notes" name="notes" class="form-textarea" rows="2" placeholder="Audit cycle number, inspector sign-off, scrap disposal ticket..."></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="receive-form-actions">
+                                        <button type="submit" class="btn btn-primary" id="btn-submit-adjustment">
+                                            <i class="fa-solid fa-sliders"></i> Apply Adjustment
+                                        </button>
+                                        <button type="button" class="btn btn-outline" id="btn-reset-adjustment" title="Reset form">
+                                            <i class="fa-solid fa-rotate-left"></i> Reset
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </section>
+
+                        <!-- Right Column: Adjustment Summary Card -->
+                        <aside class="card adjustment-summary-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <h2 class="card-title">Adjustment Summary</h2>
+                                    <span class="card-subtitle">Real-time discrepancy calculation</span>
+                                </div>
+                                <span class="badge badge-neutral"><i class="fa-solid fa-scale-balanced text-primary"></i> Reconciliation</span>
+                            </div>
+
+                            <div class="card-body summary-body">
+                                <!-- Selected Product Box -->
+                                <div class="summary-item-box">
+                                    <div class="summary-label-row">
+                                        <span class="summary-item-title">Selected Product</span>
+                                        <span class="sku-badge" id="adjustment-summary-sku">---</span>
+                                    </div>
+                                    <div class="summary-product-val" id="adjustment-summary-product">Select a product above</div>
+                                    <span class="summary-category-val" id="adjustment-summary-category">Category: ---</span>
+                                </div>
+
+                                <!-- Selected Warehouse Box -->
+                                <div class="summary-item-box">
+                                    <span class="summary-item-title">Audited Location &amp; Reason</span>
+                                    <div class="summary-warehouse-val">
+                                        <i class="fa-solid fa-warehouse warehouse-icon hub-central"></i>
+                                        <span id="adjustment-summary-warehouse">Main Warehouse</span>
+                                    </div>
+                                    <span class="summary-supplier-val" id="adjustment-summary-reason">Reason: Not selected</span>
+                                </div>
+
+                                <!-- Stock Impact Meter / Calculation Card -->
+                                <div class="summary-calculation-card">
+                                    <div class="calc-row">
+                                        <span class="calc-label">Recorded Stock (System):</span>
+                                        <strong class="calc-val" id="adjustment-summary-recorded">0</strong>
+                                    </div>
+                                    <div class="calc-row">
+                                        <span class="calc-label">Counted Stock (Physical):</span>
+                                        <strong class="calc-val" id="adjustment-summary-counted">0</strong>
+                                    </div>
+                                    <div class="calc-row">
+                                        <span class="calc-label">Stock Difference:</span>
+                                        <div id="adjustment-summary-diff-container">
+                                            <span class="badge badge-diff-neutral" id="adjustment-summary-diff"><i class="fa-solid fa-minus"></i> 0</span>
+                                        </div>
+                                    </div>
+                                    <div class="calc-divider"></div>
+                                    <div class="calc-row highlight-row">
+                                        <span class="calc-label">Final Stock After Adjustment:</span>
+                                        <strong class="calc-val-large" id="adjustment-summary-final">0</strong>
+                                    </div>
+                                    <div class="calc-progress-track">
+                                        <div class="calc-progress-fill" id="adjustment-progress-bar" style="width: 100%;"></div>
+                                    </div>
+                                    <div class="calc-sub-row">
+                                        <span>Total System Inventory Impact:</span>
+                                        <strong id="adjustment-summary-impact">0</strong>
+                                    </div>
+                                </div>
+
+                                <div class="summary-info-notice">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <span>Applying this adjustment overwrites the recorded warehouse balance so it perfectly matches the verified physical count.</span>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <!-- Bottom Full-Width Section: Recent Adjustments Table -->
+                    <section class="card table-card full-width-card">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h2 class="card-title">Recent Adjustments</h2>
+                                <span class="card-subtitle">Chronological ledger of physical count corrections and inventory audits</span>
+                            </div>
+
+                            <div class="products-toolbar">
+                                <!-- Search Adjustments -->
+                                <div class="toolbar-search">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="adjustments-search-input" placeholder="Search by ID, product, reason, warehouse..." autocomplete="off">
+                                    <button class="clear-input-btn" id="adjustments-search-clear" style="display: none;" title="Clear search">
+                                        <i class="fa-solid fa-circle-xmark"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Reason Filter Dropdown -->
+                                <div class="toolbar-filter-select">
+                                    <i class="fa-solid fa-tag select-icon"></i>
+                                    <select id="adjustments-reason-filter" aria-label="Filter by Reason">
+                                        <option value="ALL">All Reasons</option>
+                                        <option value="Damaged">Damaged</option>
+                                        <option value="Manual Correction">Manual Correction</option>
+                                        <option value="Physical Count Difference">Physical Count Difference</option>
+                                        <option value="Returned Items">Returned Items</option>
+                                        <option value="Lost Inventory">Lost Inventory</option>
+                                    </select>
+                                </div>
+
+                                <!-- Status Filter Dropdown -->
+                                <div class="toolbar-filter-select">
+                                    <i class="fa-solid fa-filter select-icon"></i>
+                                    <select id="adjustments-status-filter" aria-label="Filter by Status">
+                                        <option value="ALL">All Statuses</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="Reviewed">Reviewed</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table" id="recent-adjustments-table">
+                                <thead>
+                                    <tr>
+                                        <th>Adjustment ID</th>
+                                        <th>Product</th>
+                                        <th>Warehouse</th>
+                                        <th class="text-right">Recorded Qty</th>
+                                        <th class="text-right">Counted Qty</th>
+                                        <th class="text-center">Difference</th>
+                                        <th>Reason</th>
+                                        <th>Date</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adjustments-tbody">
+                                    <!-- Rendered dynamically by app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ============================================================
+                     VIEW 7: MOVEMENT HISTORY (UNIFIED INVENTORY AUDIT LEDGER)
+                     ============================================================ -->
+                <div id="view-history" class="page-view" style="display: none;">
+                    
+                    <!-- Movement History Metrics Bar -->
+                    <div class="history-metrics-bar">
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon blue"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Total Movements</span>
+                                <strong class="mini-metric-val" id="history-stat-total">0</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon green"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Receipts</span>
+                                <strong class="mini-metric-val text-success" id="history-stat-receipts">0</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon red"><i class="fa-solid fa-truck-fast"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Deliveries</span>
+                                <strong class="mini-metric-val text-danger" id="history-stat-deliveries">0</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon cyan"><i class="fa-solid fa-right-left"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Transfers</span>
+                                <strong class="mini-metric-val" id="history-stat-transfers">0</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon purple"><i class="fa-solid fa-sliders"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Adjustments</span>
+                                <strong class="mini-metric-val" id="history-stat-adjustments">0</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Unified Ledger Table Card -->
+                    <section class="card table-card full-width-card">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h2 class="card-title">Movement History Ledger</h2>
+                                <span class="card-subtitle">Comprehensive chronological record of all inbound, outbound, inter-warehouse, and audit flows</span>
+                            </div>
+
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-export-movements" title="Export Ledger to CSV">
+                                    <i class="fa-solid fa-file-export"></i> Export
+                                </button>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-clear-movement-filters" title="Reset all search filters">
+                                    <i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Top Multi-Criteria Action & Filter Bar -->
+                        <div class="movement-filter-bar">
+                            <!-- Search Input -->
+                            <div class="toolbar-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="history-search-input" placeholder="Search product, SKU, ID, reference..." autocomplete="off">
+                                <button class="clear-input-btn" id="history-search-clear" style="display: none;" title="Clear search">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                </button>
+                            </div>
+
+                            <!-- Movement Type Filter -->
+                            <div class="toolbar-filter-select">
+                                <i class="fa-solid fa-shapes select-icon"></i>
+                                <select id="history-type-filter" aria-label="Filter by Movement Type">
+                                    <option value="ALL">All Types</option>
+                                    <option value="Receipt">Receipts</option>
+                                    <option value="Delivery">Deliveries</option>
+                                    <option value="Transfer">Transfers</option>
+                                    <option value="Adjustment">Adjustments</option>
+                                </select>
+                            </div>
+
+                            <!-- Product Filter -->
+                            <div class="toolbar-filter-select">
+                                <i class="fa-solid fa-box select-icon"></i>
+                                <select id="history-product-filter" aria-label="Filter by Product">
+                                    <option value="ALL">All Products</option>
+                                </select>
+                            </div>
+
+                            <!-- Warehouse Filter -->
+                            <div class="toolbar-filter-select">
+                                <i class="fa-solid fa-warehouse select-icon"></i>
+                                <select id="history-warehouse-filter" aria-label="Filter by Warehouse">
+                                    <option value="ALL">All Warehouses</option>
+                                    <option value="Main Warehouse">Main Warehouse</option>
+                                    <option value="Production Floor">Production Floor</option>
+                                </select>
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div class="toolbar-filter-select">
+                                <i class="fa-solid fa-filter select-icon"></i>
+                                <select id="history-status-filter" aria-label="Filter by Status">
+                                    <option value="ALL">All Statuses</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Draft">Draft</option>
+                                    <option value="Packed">Packed</option>
+                                    <option value="Reviewed">Reviewed</option>
+                                    <option value="In Transit">In Transit</option>
+                                </select>
+                            </div>
+
+                            <!-- Date Filter -->
+                            <div class="toolbar-filter-date">
+                                <input type="date" id="history-date-filter" class="filter-date-input" aria-label="Filter by Date" title="Filter by Movement Date">
+                            </div>
+                        </div>
+
+                        <!-- Data Table with Sortable Headers -->
+                        <div class="table-responsive">
+                            <table class="data-table" id="movement-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Movement ID</th>
+                                        <th>Type</th>
+                                        <th>Product</th>
+                                        <th>SKU</th>
+                                        <th>Source</th>
+                                        <th>Destination</th>
+                                        <th>Warehouse</th>
+                                        <th class="text-right sortable-th" id="th-sort-quantity" title="Click to sort by Quantity">
+                                            <div class="sort-header-inner">
+                                                <span>Quantity</span>
+                                                <i class="fa-solid fa-sort sort-icon" id="icon-sort-quantity"></i>
+                                            </div>
+                                        </th>
+                                        <th>Reference</th>
+                                        <th class="sortable-th active-sort" id="th-sort-date" title="Click to sort by Date">
+                                            <div class="sort-header-inner">
+                                                <span>Date</span>
+                                                <i class="fa-solid fa-sort-down sort-icon" id="icon-sort-date"></i>
+                                            </div>
+                                        </th>
+                                        <th>User</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody">
+                                    <!-- Rendered dynamically by app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ============================================================
+                     VIEW 8: WAREHOUSES (FACILITY INVENTORY & CAPACITIES)
+                     ============================================================ -->
+                <div id="view-warehouses" class="page-view" style="display: none;">
+                    <!-- Top Facilities Metric Overview -->
+                    <div class="warehouse-overview-cards">
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon blue"><i class="fa-solid fa-warehouse"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Active Facilities</span>
+                                <strong class="mini-metric-val" id="wh-total-facilities">2 Hubs</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon green"><i class="fa-solid fa-cubes-stacked"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Total Units Stored</span>
+                                <strong class="mini-metric-val" id="wh-total-stored">0</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon cyan"><i class="fa-solid fa-building-circle-check"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Main Warehouse Load</span>
+                                <strong class="mini-metric-val" id="wh-main-load-stat">0%</strong>
+                            </div>
+                        </div>
+                        <div class="product-mini-metric">
+                            <div class="mini-metric-icon amber"><i class="fa-solid fa-industry"></i></div>
+                            <div>
+                                <span class="mini-metric-label">Production Floor Load</span>
+                                <strong class="mini-metric-val" id="wh-prod-load-stat">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Facility Cards Grid -->
+                    <div class="facilities-grid">
+                        <!-- Main Warehouse Card -->
+                        <div class="card facility-detail-card">
+                            <div class="card-header">
+                                <div class="facility-header-left">
+                                    <div class="facility-icon-badge primary">
+                                        <i class="fa-solid fa-building-circle-check"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="card-title">Main Warehouse</h2>
+                                        <span class="card-subtitle"><i class="fa-solid fa-location-dot"></i> Building A, Sector 4, Central Logistics Hub</span>
+                                    </div>
+                                </div>
+                                <span class="badge badge-success">Operational</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="facility-stats-grid">
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Stored Stock</span>
+                                        <strong class="facility-stat-val" id="wh-card-main-units">0 pcs</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Stocked SKUs</span>
+                                        <strong class="facility-stat-val" id="wh-card-main-skus">0 items</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Facility Lead</span>
+                                        <strong class="facility-stat-val text-dark">Alex Morgan</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Max Storage Limit</span>
+                                        <strong class="facility-stat-val text-muted">10,000 units</strong>
+                                    </div>
+                                </div>
+
+                                <div class="capacity-progress-section">
+                                    <div class="capacity-progress-header">
+                                        <span class="capacity-title">Storage Space Utilization</span>
+                                        <strong class="capacity-percent" id="wh-card-main-percent">0%</strong>
+                                    </div>
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill bg-primary" id="wh-card-main-bar" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="capacity-labels">
+                                        <span id="wh-card-main-used-desc">0 units stored</span>
+                                        <span id="wh-card-main-avail-desc">10,000 available</span>
+                                    </div>
+                                </div>
+
+                                <div class="facility-action-bar">
+                                    <button type="button" class="btn btn-primary btn-sm" id="btn-wh-goto-receive">
+                                        <i class="fa-solid fa-truck-ramp-box"></i> Receive Inbound
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-wh-goto-transfer">
+                                        <i class="fa-solid fa-right-left"></i> Transfer Stock
+                                    </button>
+                                    <button type="button" class="btn btn-outline btn-sm" id="btn-wh-goto-adjust">
+                                        <i class="fa-solid fa-sliders"></i> Audit Stock
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Production Floor Card -->
+                        <div class="card facility-detail-card">
+                            <div class="card-header">
+                                <div class="facility-header-left">
+                                    <div class="facility-icon-badge info">
+                                        <i class="fa-solid fa-industry"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="card-title">Production Floor</h2>
+                                        <span class="card-subtitle"><i class="fa-solid fa-location-dot"></i> Building B, Sector 2, Manufacturing Floor</span>
+                                    </div>
+                                </div>
+                                <span class="badge badge-success">Operational</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="facility-stats-grid">
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Stored Stock</span>
+                                        <strong class="facility-stat-val" id="wh-card-prod-units">0 pcs</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Stocked SKUs</span>
+                                        <strong class="facility-stat-val" id="wh-card-prod-skus">0 items</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Facility Lead</span>
+                                        <strong class="facility-stat-val text-dark">Marcus Reed</strong>
+                                    </div>
+                                    <div class="facility-stat">
+                                        <span class="facility-stat-label">Max Storage Limit</span>
+                                        <strong class="facility-stat-val text-muted">3,000 units</strong>
+                                    </div>
+                                </div>
+
+                                <div class="capacity-progress-section">
+                                    <div class="capacity-progress-header">
+                                        <span class="capacity-title">Floor Buffer Utilization</span>
+                                        <strong class="capacity-percent" id="wh-card-prod-percent">0%</strong>
+                                    </div>
+                                    <div class="progress-bar-wrapper">
+                                        <div class="progress-bar-fill bg-info" id="wh-card-prod-bar" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="capacity-labels">
+                                        <span id="wh-card-prod-used-desc">0 units stored</span>
+                                        <span id="wh-card-prod-avail-desc">3,000 available</span>
+                                    </div>
+                                </div>
+
+                                <div class="facility-action-bar">
+                                    <button type="button" class="btn btn-primary btn-sm" id="btn-wh-goto-transfer-in">
+                                        <i class="fa-solid fa-right-left"></i> Transfer To Floor
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-wh-goto-adjust-prod">
+                                        <i class="fa-solid fa-sliders"></i> Audit Floor Stock
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warehouse Stock Distribution Table -->
+                    <section class="card table-card full-width-card">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <h2 class="card-title">Warehouse Stock Summary & Distribution</h2>
+                                <span class="card-subtitle">Real-time inventory levels by facility location</span>
+                            </div>
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-export-wh-stock">
+                                    <i class="fa-solid fa-file-export"></i> Export Summary
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table" id="wh-distribution-table">
+                                <thead>
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th>SKU</th>
+                                        <th>Category</th>
+                                        <th class="text-right">Main Warehouse</th>
+                                        <th class="text-right">Production Floor</th>
+                                        <th class="text-right">Total Units</th>
+                                        <th style="min-width: 150px;">Location Ratio</th>
+                                        <th class="text-center">Stock Status</th>
+                                        <th class="text-center">Quick Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="wh-distribution-tbody">
+                                    <!-- Rendered dynamically by app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- ============================================================
+                     VIEW 9: SETTINGS (CONFIGURATION, RULES, PROFILE)
+                     ============================================================ -->
+                <div id="view-settings" class="page-view" style="display: none;">
+                    <div class="settings-grid">
+                        <!-- Business Info Form -->
+                        <section class="card settings-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <div class="settings-header-icon blue"><i class="fa-solid fa-building"></i></div>
+                                    <div>
+                                        <h2 class="card-title">Business & Warehouse Info</h2>
+                                        <span class="card-subtitle">Organization metadata and logistics identifiers</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <form id="form-settings-business" class="card-body">
+                                <div class="form-grid">
+                                    <div class="form-group span-2">
+                                        <label for="setting-company-name">Company / Organization Name</label>
+                                        <input type="text" id="setting-company-name" class="form-input" value="StockSense Global Logistics Inc." required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-facility-code">Primary Facility Code</label>
+                                        <input type="text" id="setting-facility-code" class="form-input" value="WH-MAIN-01" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-ops-email">Operations Contact Email</label>
+                                        <input type="email" id="setting-ops-email" class="form-input" value="ops@stocksense.io" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-currency">Base Currency</label>
+                                        <select id="setting-currency" class="form-select">
+                                            <option value="USD" selected>USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                            <option value="GBP">GBP (£)</option>
+                                            <option value="INR">INR (₹)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-timezone">System Timezone</label>
+                                        <select id="setting-timezone" class="form-select">
+                                            <option value="America/New_York" selected>Eastern Time (US & Canada)</option>
+                                            <option value="America/Chicago">Central Time (US & Canada)</option>
+                                            <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+                                            <option value="UTC">Coordinated Universal Time (UTC)</option>
+                                            <option value="Asia/Kolkata">India Standard Time (IST)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="settings-card-footer">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save Business Info
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Reorder Alert Settings -->
+                        <section class="card settings-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <div class="settings-header-icon amber"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                    <div>
+                                        <h2 class="card-title">Reorder Alert Settings</h2>
+                                        <span class="card-subtitle">Automated thresholds for safety stock levels</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <form id="form-settings-alerts" class="card-body">
+                                <div class="form-grid">
+                                    <div class="form-group span-2">
+                                        <label for="setting-reorder-strategy">Threshold Calculation Strategy</label>
+                                        <select id="setting-reorder-strategy" class="form-select">
+                                            <option value="manual" selected>Explicit SKU Reorder Levels (Recommended)</option>
+                                            <option value="leadtime">Dynamic 14-Day Lead Time Velocity</option>
+                                            <option value="safety10">10% Safety Buffer Over Rolling Consumption</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-warning-pct">Critical Warning Level</label>
+                                        <select id="setting-warning-pct" class="form-select">
+                                            <option value="100" selected>100% of Reorder Point</option>
+                                            <option value="75">75% of Reorder Point</option>
+                                            <option value="50">50% of Reorder Point (Urgent)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-audit-cycle">Recommended Audit Frequency</label>
+                                        <select id="setting-audit-cycle" class="form-select">
+                                            <option value="weekly">Weekly Cycle Counts</option>
+                                            <option value="biweekly" selected>Bi-Weekly Reconciliation</option>
+                                            <option value="monthly">Monthly Full Facility Audit</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group span-2">
+                                        <label class="checkbox-container">
+                                            <input type="checkbox" id="setting-auto-flag-zero" checked>
+                                            <span class="checkmark"></span>
+                                            <span class="checkbox-label">Automatically flag out-of-stock items in topbar notification banner</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="settings-card-footer">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save Alert Rules
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Notification Preferences -->
+                        <section class="card settings-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <div class="settings-header-icon green"><i class="fa-solid fa-bell"></i></div>
+                                    <div>
+                                        <h2 class="card-title">Notification Preferences</h2>
+                                        <span class="card-subtitle">Configure alerts for warehouse stock events</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <form id="form-settings-notifications" class="card-body">
+                                <div class="toggle-list">
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Inbound Receipt Alerts</strong>
+                                            <span>Receive immediate notification when purchase orders arrive</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="notif-receipts" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Outbound Dispatch Confirmations</strong>
+                                            <span>Alert when customer shipments are packed and fulfilled</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="notif-deliveries" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Inter-Warehouse Transfer Status</strong>
+                                            <span>Track relocations between Main Warehouse and Production Floor</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="notif-transfers" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Inventory Discrepancy Warnings</strong>
+                                            <span>Instant notification on physical count mismatches over ±5%</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="notif-adjustments" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Daily Digest Email</strong>
+                                            <span>Receive automated summary report at 18:00 daily</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="notif-digest">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="settings-card-footer">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save Notifications
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Theme Preference Section -->
+                        <section class="card settings-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <div class="settings-header-icon purple"><i class="fa-solid fa-palette"></i></div>
+                                    <div>
+                                        <h2 class="card-title">Theme Preferences</h2>
+                                        <span class="card-subtitle">Visual customization, table density, and accessibility</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <form id="form-settings-theme" class="card-body">
+                                <div class="form-group">
+                                    <label>Dashboard Color Theme</label>
+                                    <div class="theme-options-grid">
+                                        <label class="theme-option-card">
+                                            <input type="radio" name="ui_theme" value="light" id="theme-radio-light" checked>
+                                            <div class="theme-card-inner">
+                                                <i class="fa-regular fa-sun theme-icon"></i>
+                                                <strong>Light Theme</strong>
+                                                <span>Clean bright office UI</span>
+                                            </div>
+                                        </label>
+                                        <label class="theme-option-card">
+                                            <input type="radio" name="ui_theme" value="dark" id="theme-radio-dark">
+                                            <div class="theme-card-inner">
+                                                <i class="fa-solid fa-moon theme-icon"></i>
+                                                <strong>Dark Theme</strong>
+                                                <span>High-contrast dark mode</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="toggle-list" style="margin-top: 1rem;">
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Compact Table View</strong>
+                                            <span>Reduce row padding to display more ledger rows</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="pref-compact-tables">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="toggle-item">
+                                        <div class="toggle-info">
+                                            <strong>Sound Effects</strong>
+                                            <span>Play audio feedback on completed operations</span>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="pref-sound-effects">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="settings-card-footer">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Apply Theme Preferences
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- Profile Settings UI -->
+                        <section class="card settings-card full-width-card">
+                            <div class="card-header">
+                                <div class="card-title-group">
+                                    <div class="settings-header-icon cyan"><i class="fa-solid fa-user-gear"></i></div>
+                                    <div>
+                                        <h2 class="card-title">Profile Settings</h2>
+                                        <span class="card-subtitle">Manage operator profile identity, email, and authentication</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <form id="form-settings-profile" class="card-body">
+                                <div class="profile-settings-layout">
+                                    <div class="profile-avatar-large">
+                                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80" alt="Alex Morgan" class="large-avatar">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-change-avatar">
+                                            <i class="fa-solid fa-camera"></i> Change Photo
+                                        </button>
+                                    </div>
+                                    <div class="profile-fields-grid">
+                                        <div class="form-group">
+                                            <label for="profile-full-name">Full Name</label>
+                                            <input type="text" id="profile-full-name" class="form-input" value="Alex Morgan" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-user-email">Account Email</label>
+                                            <input type="email" id="profile-user-email" class="form-input" value="alex.m@stocksense.io" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-assigned-role">System Role</label>
+                                            <input type="text" id="profile-assigned-role" class="form-input" value="Warehouse Administrator" readonly disabled>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-active-warehouse">Assigned Home Facility</label>
+                                            <select id="profile-active-warehouse" class="form-select">
+                                                <option value="Main Warehouse" selected>Main Warehouse (Central)</option>
+                                                <option value="Production Floor">Production Floor</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-cur-pwd">Current Password</label>
+                                            <input type="password" id="profile-cur-pwd" class="form-input" placeholder="••••••••">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="profile-new-pwd">New Password (leave blank to keep)</label>
+                                            <input type="password" id="profile-new-pwd" class="form-input" placeholder="••••••••">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-card-footer">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="fa-solid fa-floppy-disk"></i> Update Profile Information
+                                    </button>
+                                </div>
+                            </form>
+                        </section>
+                    </div>
                 </div>
 
             </main>

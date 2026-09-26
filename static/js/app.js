@@ -295,6 +295,156 @@ let deliveriesData = [
     }
 ];
 
+// Sample Inter-Warehouse Stock Transfers Dataset
+// In production: Replace with fetch('/api/transfers') later
+let transfersData = [
+    {
+        id: "TRF-2024-0219",
+        reference: "TR-8910",
+        productId: 1,
+        productName: "Steel Rods",
+        productSku: "SR-101",
+        sourceWarehouse: "Main Warehouse",
+        destWarehouse: "Production Floor",
+        quantity: 40,
+        unit: "kg",
+        date: "2024-09-26",
+        status: "Completed",
+        notes: "Shift 1 raw material replenishment for milling section"
+    },
+    {
+        id: "TRF-2024-0218",
+        reference: "TR-8908",
+        productId: 2,
+        productName: "Screws",
+        productSku: "SCR-502",
+        sourceWarehouse: "Main Warehouse",
+        destWarehouse: "Production Floor",
+        quantity: 20,
+        unit: "boxes",
+        date: "2024-09-26",
+        status: "Completed",
+        notes: "Fasteners restock for workstation B"
+    },
+    {
+        id: "TRF-2024-0217",
+        reference: "TR-8902",
+        productId: 5,
+        productName: "Chairs",
+        productSku: "CHR-880",
+        sourceWarehouse: "Production Floor",
+        destWarehouse: "Main Warehouse",
+        quantity: 10,
+        unit: "pcs",
+        date: "2024-09-25",
+        status: "In Transit",
+        notes: "Finished inspection batches staged for packaging bay"
+    },
+    {
+        id: "TRF-2024-0216",
+        reference: "TR-8899",
+        productId: 7,
+        productName: "Safety Gloves",
+        productSku: "GLV-601",
+        sourceWarehouse: "Main Warehouse",
+        destWarehouse: "Production Floor",
+        quantity: 15,
+        unit: "pairs",
+        date: "2024-09-25",
+        status: "Completed",
+        notes: "PPE supply restock"
+    },
+    {
+        id: "TRF-2024-0215",
+        reference: "TR-8895",
+        productId: 3,
+        productName: "Wood Panels",
+        productSku: "WP-204",
+        sourceWarehouse: "Main Warehouse",
+        destWarehouse: "Production Floor",
+        quantity: 5,
+        unit: "pcs",
+        date: "2024-09-24",
+        status: "Draft",
+        notes: "Pending carpentry supervisor confirmation"
+    }
+];
+
+// Sample Inventory Stock Adjustments Dataset
+// In production: Replace with fetch('/api/adjustments') later
+let adjustmentsData = [
+    {
+        id: "ADJ-2024-0087",
+        productId: 1,
+        productName: "Steel Rods",
+        productSku: "SR-101",
+        warehouse: "Main Warehouse",
+        recordedQty: 360,
+        countedQty: 350,
+        difference: -10,
+        reason: "Physical Count Difference",
+        date: "2024-09-26",
+        status: "Completed",
+        notes: "Quarterly stock audit reconciliation"
+    },
+    {
+        id: "ADJ-2024-0086",
+        productId: 4,
+        productName: "Paint",
+        productSku: "PNT-303",
+        warehouse: "Main Warehouse",
+        recordedQty: 5,
+        countedQty: 0,
+        difference: -5,
+        reason: "Damaged",
+        date: "2024-09-25",
+        status: "Completed",
+        notes: "Container seal breach during rack transit"
+    },
+    {
+        id: "ADJ-2024-0085",
+        productId: 2,
+        productName: "Screws",
+        productSku: "SCR-502",
+        warehouse: "Production Floor",
+        recordedQty: 40,
+        countedQty: 45,
+        difference: 5,
+        reason: "Returned Items",
+        date: "2024-09-25",
+        status: "Completed",
+        notes: "Surplus hardware returned from assembly line 1"
+    },
+    {
+        id: "ADJ-2024-0084",
+        productId: 3,
+        productName: "Wood Panels",
+        productSku: "WP-204",
+        warehouse: "Main Warehouse",
+        recordedQty: 20,
+        countedQty: 18,
+        difference: -2,
+        reason: "Lost Inventory",
+        date: "2024-09-24",
+        status: "Reviewed",
+        notes: "Discrepancy noted in Bay D, pending supervisor signoff"
+    },
+    {
+        id: "ADJ-2024-0083",
+        productId: 7,
+        productName: "Safety Gloves",
+        productSku: "GLV-601",
+        warehouse: "Production Floor",
+        recordedQty: 30,
+        countedQty: 30,
+        difference: 0,
+        reason: "Physical Count Difference",
+        date: "2024-09-23",
+        status: "Completed",
+        notes: "Routine cycle count - 100% matched"
+    }
+];
+
 // Sample Low Stock Alert Items for Dashboard
 // In production: Replace with fetch('/api/products/low-stock') later
 let lowStockProducts = [
@@ -437,25 +587,26 @@ let productPendingDeleteId = null;
    Application Initialization
    ========================================================================== */
 function initApp() {
-    // Render initial views and tables
-    renderLowStockTable(lowStockProducts);
-    renderMovementsTable(stockMovements);
-    renderProductsTable(productsData);
-    renderReceiptsTable(receiptsData);
-    renderDeliveriesTable(deliveriesData);
+    // Theme and preferences initialization
+    setupTheme();
 
-    updateProductsMetrics();
-    updateReceiptsMetrics();
-    updateDeliveriesMetrics();
-
-    // Populate dynamic form elements
+    // Populate initial dropdowns and form presets
     populateReceiveProductDropdown();
     populateDeliveryProductDropdown();
+    populateTransferDropdowns();
+    populateAdjustmentDropdowns();
+    populateHistoryProductDropdown();
+
     setDefaultReceiptDate();
     setDefaultDeliveryDate();
+    setDefaultTransferDate();
+    setDefaultAdjustmentDate();
 
     updateReceiveSummary();
     updateDeliverySummary();
+    updateTransferSummary();
+    updateRecordedQuantity();
+    updateAdjustmentSummary();
 
     // Setup navigation and event listeners
     setupSidebar();
@@ -464,82 +615,232 @@ function initApp() {
     setupProductsViewInteractions();
     setupReceiveStockInteractions();
     setupDeliveryOrdersInteractions();
+    setupTransfersInteractions();
+    setupAdjustmentsInteractions();
+    setupMovementHistoryInteractions();
+    setupWarehousesInteractions();
+    setupSettingsInteractions();
     setupMovementTypeFilters();
     setupDropdowns();
     setupModals();
     setupForms();
     setupActionButtons();
+
+    // Initial view routing based on URL hash or default to Dashboard
+    const initialHash = window.location.hash.replace('#', '').toLowerCase();
+    const hashToView = {
+        'dashboard': 'Dashboard',
+        'products': 'Products',
+        'receipts': 'Receive Stock',
+        'deliveries': 'Delivery Orders',
+        'transfers': 'Transfers',
+        'adjustments': 'Stock Adjustments',
+        'history': 'Movement History',
+        'warehouses': 'Warehouses',
+        'settings': 'Settings'
+    };
+    const startView = hashToView[initialHash] || 'Dashboard';
+    navigateTo(startView);
 }
 
 /* ==========================================================================
-   Navigation & Page View Routing
+   Navigation & Unified Page View Routing
    ========================================================================== */
-function setupNavigation() {
-    const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+const viewsConfig = {
+    'Dashboard': {
+        id: 'view-dashboard',
+        hash: 'dashboard',
+        title: 'Inventory Overview',
+        subtitle: 'Real-time status across all fulfillment hubs',
+        render: renderDashboard
+    },
+    'Products': {
+        id: 'view-products',
+        hash: 'products',
+        title: 'Products',
+        subtitle: 'Manage inventory catalog, multi-warehouse stock, and reorder levels',
+        render: renderProducts
+    },
+    'Receive Stock': {
+        id: 'view-receipts',
+        hash: 'receipts',
+        title: 'Receive Stock',
+        subtitle: 'Register inbound supplier shipments and allocate into warehouse storage bins',
+        render: renderReceipts
+    },
+    'Receipts': {
+        id: 'view-receipts',
+        hash: 'receipts',
+        title: 'Receive Stock',
+        subtitle: 'Register inbound supplier shipments and allocate into warehouse storage bins',
+        render: renderReceipts
+    },
+    'Delivery Orders': {
+        id: 'view-deliveries',
+        hash: 'deliveries',
+        title: 'Delivery Orders',
+        subtitle: 'Dispatch outgoing customer shipments and verify warehouse stock availability',
+        render: renderDeliveries
+    },
+    'Deliveries': {
+        id: 'view-deliveries',
+        hash: 'deliveries',
+        title: 'Delivery Orders',
+        subtitle: 'Dispatch outgoing customer shipments and verify warehouse stock availability',
+        render: renderDeliveries
+    },
+    'Transfers': {
+        id: 'view-transfers',
+        hash: 'transfers',
+        title: 'Transfers',
+        subtitle: 'Inter-warehouse stock movements, facility rebalancing, and transit tracking',
+        render: renderTransfers
+    },
+    'Stock Adjustments': {
+        id: 'view-adjustments',
+        hash: 'adjustments',
+        title: 'Stock Adjustments',
+        subtitle: 'Reconcile inventory balances and rectify physical stock discrepancies',
+        render: renderAdjustments
+    },
+    'Adjustments': {
+        id: 'view-adjustments',
+        hash: 'adjustments',
+        title: 'Stock Adjustments',
+        subtitle: 'Reconcile inventory balances and rectify physical stock discrepancies',
+        render: renderAdjustments
+    },
+    'Movement History': {
+        id: 'view-history',
+        hash: 'history',
+        title: 'Movement History',
+        subtitle: 'Unified stock ledger for all inbound, outbound, inter-warehouse, and audit flows',
+        render: renderMovementHistory
+    },
+    'Warehouses': {
+        id: 'view-warehouses',
+        hash: 'warehouses',
+        title: 'Warehouse Facilities',
+        subtitle: 'Manage and monitor multi-facility capacity, stock distributions, and operational throughput',
+        render: renderWarehouses
+    },
+    'Settings': {
+        id: 'view-settings',
+        hash: 'settings',
+        title: 'System Settings',
+        subtitle: 'Configure business rules, notification preferences, themes, and operator profiles',
+        render: renderSettings
+    }
+};
+
+function navigateTo(viewName) {
+    const config = viewsConfig[viewName] || viewsConfig['Dashboard'];
     const pageTitle = document.getElementById('page-title');
     const pageSubtitle = document.getElementById('page-subtitle');
-    const dashboardView = document.getElementById('view-dashboard');
-    const productsView = document.getElementById('view-products');
-    const receiptsView = document.getElementById('view-receipts');
-    const deliveriesView = document.getElementById('view-deliveries');
 
+    // Hide all view containers
+    document.querySelectorAll('.page-view').forEach(view => {
+        view.style.display = 'none';
+        view.classList.remove('active');
+    });
+
+    // Show target view container
+    const targetEl = document.getElementById(config.id);
+    if (targetEl) {
+        targetEl.style.display = 'block';
+        targetEl.classList.add('active');
+    }
+
+    // Update header text
+    if (pageTitle) pageTitle.textContent = config.title;
+    if (pageSubtitle) pageSubtitle.textContent = config.subtitle;
+
+    // Update sidebar nav active link
+    document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
+        const linkDataView = link.getAttribute('data-view');
+        if (linkDataView === viewName ||
+            (linkDataView === 'Receive Stock' && viewName === 'Receipts') ||
+            (linkDataView === 'Delivery Orders' && viewName === 'Deliveries') ||
+            (linkDataView === 'Stock Adjustments' && viewName === 'Adjustments')) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+
+    // Sync hash
+    if (config.hash && window.location.hash !== `#${config.hash}`) {
+        history.replaceState(null, '', `#${config.hash}`);
+    }
+
+    // Call view-specific render function
+    if (typeof config.render === 'function') {
+        config.render();
+    }
+
+    // Close mobile sidebar drawer if open
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setupNavigation() {
+    // Sidebar nav links
+    const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-
-            navLinks.forEach(item => item.classList.remove('active'));
-            link.classList.add('active');
-
             const viewName = link.getAttribute('data-view') || 'Dashboard';
+            navigateTo(viewName);
+        });
+    });
 
-            // Hide all views first
-            if (dashboardView) dashboardView.style.display = 'none';
-            if (productsView) productsView.style.display = 'none';
-            if (receiptsView) receiptsView.style.display = 'none';
-            if (deliveriesView) deliveriesView.style.display = 'none';
+    // Dashboard quick action buttons
+    document.querySelectorAll('.quick-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-target-view');
+            if (target) navigateTo(target);
+        });
+    });
 
-            // Switch view
-            if (viewName === 'Dashboard') {
-                if (dashboardView) dashboardView.style.display = 'flex';
-                if (pageTitle) pageTitle.textContent = 'Inventory Overview';
-                if (pageSubtitle) pageSubtitle.textContent = 'Real-time status across all fulfillment hubs';
-            } else if (viewName === 'Products') {
-                if (productsView) productsView.style.display = 'flex';
-                if (pageTitle) pageTitle.textContent = 'Products';
-                if (pageSubtitle) pageSubtitle.textContent = 'Manage inventory catalog, multi-warehouse stock, and reorder levels';
-                renderProductsTable(getFilteredProducts());
-                updateProductsMetrics();
-            } else if (viewName === 'Receive Stock' || viewName === 'Receipts') {
-                if (receiptsView) receiptsView.style.display = 'flex';
-                if (pageTitle) pageTitle.textContent = 'Receive Stock';
-                if (pageSubtitle) pageSubtitle.textContent = 'Register inbound supplier shipments and allocate into warehouse storage bins';
-                populateReceiveProductDropdown();
-                renderReceiptsTable(getFilteredReceipts());
-                updateReceiveSummary();
-                updateReceiptsMetrics();
-            } else if (viewName === 'Delivery Orders' || viewName === 'Deliveries') {
-                if (deliveriesView) deliveriesView.style.display = 'flex';
-                if (pageTitle) pageTitle.textContent = 'Delivery Orders';
-                if (pageSubtitle) pageSubtitle.textContent = 'Dispatch outgoing customer shipments and verify warehouse stock availability';
-                populateDeliveryProductDropdown();
-                renderDeliveriesTable(getFilteredDeliveries());
-                updateDeliverySummary();
-                updateDeliveriesMetrics();
-            } else {
-                if (pageTitle) pageTitle.textContent = viewName;
-                if (pageSubtitle) pageSubtitle.textContent = `Management portal for ${viewName}`;
-                showNotification(`${viewName} module is ready for backend integration`, 'info', 2500);
-            }
-
-            // Close mobile sidebar drawer if open
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar && sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-                document.body.style.overflow = '';
+    // Topbar profile dropdown menu actions
+    const profileLinks = document.querySelectorAll('#profile-dropdown .dropdown-item');
+    profileLinks.forEach(item => {
+        item.addEventListener('click', (e) => {
+            const action = item.getAttribute('data-action');
+            if (action === 'profile' || action === 'preferences') {
+                e.preventDefault();
+                navigateTo('Settings');
+            } else if (action === 'activity') {
+                e.preventDefault();
+                navigateTo('Movement History');
             }
         });
+    });
+
+    // Hash change listener for browser navigation
+    window.addEventListener('hashchange', () => {
+        const hash = window.location.hash.replace('#', '').toLowerCase();
+        const hashMapping = {
+            'dashboard': 'Dashboard',
+            'products': 'Products',
+            'receipts': 'Receive Stock',
+            'deliveries': 'Delivery Orders',
+            'transfers': 'Transfers',
+            'adjustments': 'Stock Adjustments',
+            'history': 'Movement History',
+            'warehouses': 'Warehouses',
+            'settings': 'Settings'
+        };
+        if (hashMapping[hash]) {
+            navigateTo(hashMapping[hash]);
+        }
     });
 }
 
@@ -1038,6 +1339,1087 @@ function clearDeliveryErrors() {
 }
 
 /* ==========================================================================
+   Transfers Operations & Live Inter-Warehouse Relocation
+   ========================================================================== */
+
+/**
+ * Populates product and warehouse select dropdowns on Transfer form
+ */
+function populateTransferDropdowns() {
+    const productSelect = document.getElementById('transfer-product');
+    const sourceSelect = document.getElementById('transfer-source');
+    const destSelect = document.getElementById('transfer-dest');
+
+    if (productSelect) {
+        const curProdVal = productSelect.value;
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        productsData.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (${p.sku}) - ${p.unit}`;
+            productSelect.appendChild(opt);
+        });
+
+        if (curProdVal && productsData.some(p => p.id == curProdVal)) {
+            productSelect.value = curProdVal;
+        } else if (productsData.length > 0) {
+            productSelect.value = productsData[0].id;
+        }
+    }
+
+    if (sourceSelect) {
+        const curSource = sourceSelect.value || 'Main Warehouse';
+        sourceSelect.innerHTML = '';
+        warehousesData.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w;
+            opt.textContent = w;
+            if (w === curSource) opt.selected = true;
+            sourceSelect.appendChild(opt);
+        });
+    }
+
+    if (destSelect) {
+        const curDest = destSelect.value || (warehousesData.length > 1 ? warehousesData[1] : warehousesData[0]);
+        destSelect.innerHTML = '';
+        warehousesData.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w;
+            opt.textContent = w;
+            if (w === curDest) opt.selected = true;
+            destSelect.appendChild(opt);
+        });
+    }
+}
+
+/**
+ * Sets current date as default for transfer form
+ */
+function setDefaultTransferDate() {
+    const dateInput = document.getElementById('transfer-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+/**
+ * Calculates and updates live Transfer Summary card
+ */
+function updateTransferSummary() {
+    const productSelect = document.getElementById('transfer-product');
+    const sourceSelect = document.getElementById('transfer-source');
+    const destSelect = document.getElementById('transfer-dest');
+    const qtyInput = document.getElementById('transfer-quantity');
+
+    const elProdName = document.getElementById('transfer-summary-product');
+    const elSkuTag = document.getElementById('transfer-summary-sku');
+    const elCategory = document.getElementById('transfer-summary-category');
+    const elSourceName = document.getElementById('transfer-summary-source-name');
+    const elDestName = document.getElementById('transfer-summary-dest-name');
+    const elFlowQty = document.getElementById('transfer-summary-flow-qty');
+
+    const elSourceLabel = document.getElementById('transfer-source-label');
+    const elSourceBefore = document.getElementById('transfer-source-before');
+    const elSourceDelta = document.getElementById('transfer-source-delta');
+    const elSourceAfter = document.getElementById('transfer-source-after');
+
+    const elDestLabel = document.getElementById('transfer-dest-label');
+    const elDestBefore = document.getElementById('transfer-dest-before');
+    const elDestDelta = document.getElementById('transfer-dest-delta');
+    const elDestAfter = document.getElementById('transfer-dest-after');
+
+    const elTotalStockVal = document.getElementById('transfer-total-stock-val');
+
+    const sameWarnBanner = document.getElementById('transfer-same-warning');
+    const sameWarnText = document.getElementById('transfer-same-warning-text');
+    const stockWarnBanner = document.getElementById('transfer-stock-warning');
+    const stockWarnText = document.getElementById('transfer-stock-warning-text');
+
+    const productId = productSelect ? Number(productSelect.value) : null;
+    const source = sourceSelect ? sourceSelect.value : 'Main Warehouse';
+    const dest = destSelect ? destSelect.value : 'Production Floor';
+    const quantity = qtyInput ? Math.max(0, Number(qtyInput.value) || 0) : 0;
+
+    const product = productsData.find(p => p.id === productId);
+
+    if (elSourceName) elSourceName.textContent = source || 'Not Selected';
+    if (elDestName) elDestName.textContent = dest || 'Not Selected';
+    if (elSourceLabel) elSourceLabel.textContent = source || 'Source';
+    if (elDestLabel) elDestLabel.textContent = dest || 'Destination';
+
+    if (!product) {
+        if (elProdName) elProdName.textContent = 'Select a product above';
+        if (elSkuTag) elSkuTag.textContent = '---';
+        if (elCategory) elCategory.textContent = 'Category: ---';
+        if (elFlowQty) elFlowQty.textContent = `${quantity} units`;
+        if (elSourceBefore) elSourceBefore.textContent = '0';
+        if (elSourceDelta) elSourceDelta.textContent = `-${quantity}`;
+        if (elSourceAfter) elSourceAfter.textContent = '0';
+        if (elDestBefore) elDestBefore.textContent = '0';
+        if (elDestDelta) elDestDelta.textContent = `+${quantity}`;
+        if (elDestAfter) elDestAfter.textContent = '0';
+        if (elTotalStockVal) elTotalStockVal.textContent = '0 units';
+        if (sameWarnBanner) sameWarnBanner.style.display = 'none';
+        if (stockWarnBanner) stockWarnBanner.style.display = 'none';
+        return;
+    }
+
+    if (elProdName) elProdName.textContent = product.name;
+    if (elSkuTag) elSkuTag.textContent = product.sku;
+    if (elCategory) elCategory.textContent = `Category: ${product.category}`;
+    if (elFlowQty) elFlowQty.textContent = `${quantity} ${product.unit}`;
+
+    const sourceStockBefore = source === 'Main Warehouse' ? product.mainWarehouseStock : product.productionFloorStock;
+    const destStockBefore = dest === 'Main Warehouse' ? product.mainWarehouseStock : product.productionFloorStock;
+
+    // Validation Check 1: Same warehouse warning
+    const isSameWarehouse = source && dest && source === dest;
+    if (isSameWarehouse) {
+        if (sameWarnBanner) {
+            sameWarnBanner.style.display = 'flex';
+            if (sameWarnText) sameWarnText.textContent = `Source and destination warehouses cannot both be "${source}". Please select two different facilities.`;
+        }
+    } else {
+        if (sameWarnBanner) sameWarnBanner.style.display = 'none';
+    }
+
+    // Validation Check 2: Quantity exceeds available stock warning
+    const isOverStock = quantity > sourceStockBefore;
+    if (isOverStock && !isSameWarehouse) {
+        if (stockWarnBanner) {
+            stockWarnBanner.style.display = 'flex';
+            if (stockWarnText) stockWarnText.textContent = `Requested transfer (${quantity} ${product.unit}) exceeds available stock (${sourceStockBefore} ${product.unit}) in ${source}.`;
+        }
+    } else {
+        if (stockWarnBanner) stockWarnBanner.style.display = 'none';
+    }
+
+    const sourceStockAfter = isSameWarehouse ? sourceStockBefore : Math.max(0, sourceStockBefore - quantity);
+    const destStockAfter = isSameWarehouse ? destStockBefore : destStockBefore + quantity;
+    const totalCompanyStock = product.mainWarehouseStock + product.productionFloorStock;
+
+    if (elSourceBefore) elSourceBefore.textContent = `${sourceStockBefore.toLocaleString()} ${product.unit}`;
+    if (elSourceDelta) elSourceDelta.textContent = `-${quantity.toLocaleString()} ${product.unit}`;
+    if (elSourceAfter) {
+        elSourceAfter.textContent = `${sourceStockAfter.toLocaleString()} ${product.unit}`;
+        elSourceAfter.className = isOverStock ? 'text-right val-after text-danger' : 'text-right val-after';
+    }
+
+    if (elDestBefore) elDestBefore.textContent = `${destStockBefore.toLocaleString()} ${product.unit}`;
+    if (elDestDelta) elDestDelta.textContent = `+${quantity.toLocaleString()} ${product.unit}`;
+    if (elDestAfter) elDestAfter.textContent = `${destStockAfter.toLocaleString()} ${product.unit}`;
+
+    if (elTotalStockVal) {
+        elTotalStockVal.textContent = `${totalCompanyStock.toLocaleString()} ${product.unit}`;
+    }
+}
+
+/**
+ * Updates top metrics for Transfers view
+ */
+function updateTransfersMetrics() {
+    const elCount = document.getElementById('transfers-stat-count');
+    const elUnits = document.getElementById('transfers-stat-units');
+    const elTransit = document.getElementById('transfers-stat-transit');
+    const elDepots = document.getElementById('transfers-stat-depots');
+
+    if (elCount) elCount.textContent = transfersData.length;
+
+    let unitsRelocated = 0;
+    let inTransitCount = 0;
+
+    transfersData.forEach(t => {
+        if (t.status === 'Completed') unitsRelocated += t.quantity;
+        if (t.status === 'In Transit') inTransitCount += 1;
+    });
+
+    if (elUnits) elUnits.textContent = unitsRelocated.toLocaleString();
+    if (elTransit) elTransit.textContent = inTransitCount;
+    if (elDepots) elDepots.textContent = warehousesData.length;
+}
+
+/**
+ * Handles Inter-Warehouse Transfer Form Submission
+ */
+function handleTransferSubmit(e) {
+    e.preventDefault();
+
+    const productSelect = document.getElementById('transfer-product');
+    const sourceSelect = document.getElementById('transfer-source');
+    const destSelect = document.getElementById('transfer-dest');
+    const qtyInput = document.getElementById('transfer-quantity');
+    const dateInput = document.getElementById('transfer-date');
+    const refInput = document.getElementById('transfer-ref');
+    const notesInput = document.getElementById('transfer-notes');
+    const errorBox = document.getElementById('transfer-form-error');
+
+    const statusRadio = document.querySelector('input[name="transfer-status"]:checked');
+    const status = statusRadio ? statusRadio.value : 'Completed';
+
+    clearTransferErrors();
+    if (errorBox) errorBox.style.display = 'none';
+
+    let hasErrors = false;
+
+    const productId = Number(productSelect.value);
+    const product = productsData.find(p => p.id === productId);
+    if (!productId || !product) {
+        setFieldError('err-transfer-product', productSelect, 'Please select a product');
+        hasErrors = true;
+    }
+
+    const sourceWarehouse = sourceSelect.value;
+    if (!sourceWarehouse) {
+        setFieldError('err-transfer-source', sourceSelect, 'Please select a source warehouse');
+        hasErrors = true;
+    }
+
+    const destWarehouse = destSelect.value;
+    if (!destWarehouse) {
+        setFieldError('err-transfer-dest', destSelect, 'Please select a destination warehouse');
+        hasErrors = true;
+    }
+
+    // Constraint: Prevent transfer if source and destination are identical
+    if (sourceWarehouse && destWarehouse && sourceWarehouse === destWarehouse) {
+        const msg = 'Source and destination warehouses cannot be the same';
+        setFieldError('err-transfer-dest', destSelect, msg);
+        const sameBanner = document.getElementById('transfer-same-warning');
+        if (sameBanner) sameBanner.style.display = 'flex';
+        hasErrors = true;
+    }
+
+    const quantity = Number(qtyInput.value);
+    if (!qtyInput.value.trim() || isNaN(quantity) || quantity <= 0) {
+        setFieldError('err-transfer-quantity', qtyInput, 'Quantity must be greater than 0');
+        hasErrors = true;
+    }
+
+    const transferDate = dateInput.value;
+    if (!transferDate) {
+        setFieldError('err-transfer-date', dateInput, 'Please select a transfer date');
+        hasErrors = true;
+    }
+
+    const reference = refInput.value.trim().toUpperCase();
+    if (!reference) {
+        setFieldError('err-transfer-ref', refInput, 'Transfer reference is required');
+        hasErrors = true;
+    }
+
+    // Constraint: Prevent transfer if quantity exceeds available stock at source
+    if (product && sourceWarehouse && quantity > 0 && sourceWarehouse !== destWarehouse) {
+        const availableStock = sourceWarehouse === 'Main Warehouse'
+            ? product.mainWarehouseStock
+            : product.productionFloorStock;
+
+        if (quantity > availableStock) {
+            const errorMsg = `Insufficient stock! Source warehouse (${sourceWarehouse}) only has ${availableStock} ${product.unit} available.`;
+            setFieldError('err-transfer-quantity', qtyInput, errorMsg);
+            const stockBanner = document.getElementById('transfer-stock-warning');
+            if (stockBanner) stockBanner.style.display = 'flex';
+            if (errorBox) {
+                errorBox.textContent = errorMsg;
+                errorBox.style.display = 'block';
+            }
+            qtyInput.focus();
+            return;
+        }
+    }
+
+    if (hasErrors) {
+        if (errorBox) {
+            errorBox.textContent = 'Please correct the highlighted fields before executing transfer.';
+            errorBox.style.display = 'block';
+        }
+        return;
+    }
+
+    // Create new Transfer record
+    const newTransfer = {
+        id: `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        reference: reference,
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku,
+        sourceWarehouse: sourceWarehouse,
+        destWarehouse: destWarehouse,
+        quantity: quantity,
+        unit: product.unit,
+        date: transferDate,
+        notes: notesInput ? notesInput.value.trim() : '',
+        status: status
+    };
+
+    // Subtract from source and add to destination; keep total stock unchanged
+    // In production: Replace with fetch('/api/transfers', { method: 'POST', body: JSON.stringify(newTransfer) }) later
+    if (status === 'Completed') {
+        if (sourceWarehouse === 'Main Warehouse') {
+            product.mainWarehouseStock -= quantity;
+        } else if (sourceWarehouse === 'Production Floor') {
+            product.productionFloorStock -= quantity;
+        }
+
+        if (destWarehouse === 'Main Warehouse') {
+            product.mainWarehouseStock += quantity;
+        } else if (destWarehouse === 'Production Floor') {
+            product.productionFloorStock += quantity;
+        }
+
+        // Add to stock movements log
+        // In production: Replace with fetch('/api/movements', { method: 'POST', body: ... }) later
+        stockMovements.unshift({
+            id: newTransfer.id,
+            timestamp: 'Just now',
+            productName: product.name,
+            type: 'Transfer',
+            quantity: `${quantity}`,
+            route: `${sourceWarehouse} → ${destWarehouse}`,
+            user: 'Alex Morgan'
+        });
+
+        // Dashboard metrics (net stock delta is 0 for internal transfers)
+        updateDashboardMetrics(0);
+    }
+
+    // Add to transfers dataset
+    transfersData.unshift(newTransfer);
+
+    // Refresh all views and tables
+    renderTransfersTable(getFilteredTransfers());
+    renderProductsTable(getFilteredProducts());
+    renderMovementsTable(stockMovements);
+    updateProductsMetrics();
+    updateTransfersMetrics();
+    updateTransferSummary();
+    updateReceiveSummary();
+    updateDeliverySummary();
+
+    // Clear form inputs
+    if (qtyInput) qtyInput.value = '';
+    if (refInput) refInput.value = '';
+    if (notesInput) notesInput.value = '';
+
+    // Success toast notification
+    showNotification('Transfer recorded successfully', 'success', 3500);
+}
+
+function clearTransferErrors() {
+    const errorElements = document.querySelectorAll('[id^="err-transfer-"]');
+    errorElements.forEach(el => el.textContent = '');
+
+    const inputs = document.querySelectorAll('#form-transfer-order .has-error');
+    inputs.forEach(el => el.classList.remove('has-error'));
+
+    const errorBox = document.getElementById('transfer-form-error');
+    if (errorBox) errorBox.style.display = 'none';
+
+    const sameBanner = document.getElementById('transfer-same-warning');
+    if (sameBanner) sameBanner.style.display = 'none';
+
+    const stockBanner = document.getElementById('transfer-stock-warning');
+    if (stockBanner) stockBanner.style.display = 'none';
+}
+
+function resetTransferForm() {
+    const form = document.getElementById('form-transfer-order');
+    if (form) form.reset();
+    clearTransferErrors();
+    populateTransferDropdowns();
+    setDefaultTransferDate();
+    updateTransferSummary();
+}
+
+/**
+ * Renders Recent Transfers Table
+ */
+function renderTransfersTable(transfers) {
+    const tbody = document.getElementById('transfers-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (transfers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="empty-table-row">
+                    <div class="empty-icon"><i class="fa-solid fa-right-left"></i></div>
+                    <p>No transfers recorded matching the current filter.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    transfers.forEach(t => {
+        const tr = document.createElement('tr');
+        let badgeClass = 'badge-status-completed';
+        if (t.status === 'In Transit') badgeClass = 'badge-status-in-transit';
+        if (t.status === 'Draft') badgeClass = 'badge-status-draft';
+
+        tr.innerHTML = `
+            <td>
+                <strong class="sku-badge">${escapeHtml(t.id)}</strong>
+            </td>
+            <td>
+                <div class="product-cell">
+                    <span class="product-name-txt">${escapeHtml(t.productName)}</span>
+                    <span class="product-cat-txt">${escapeHtml(t.productSku)}</span>
+                </div>
+            </td>
+            <td>
+                <span class="warehouse-tag">
+                    <i class="fa-solid fa-location-dot"></i>
+                    ${escapeHtml(t.sourceWarehouse)}
+                </span>
+            </td>
+            <td>
+                <span class="warehouse-tag">
+                    <i class="fa-solid fa-arrow-right"></i>
+                    ${escapeHtml(t.destWarehouse)}
+                </span>
+            </td>
+            <td class="text-right">
+                <span class="qty-val font-bold">${t.quantity.toLocaleString()} ${escapeHtml(t.unit || '')}</span>
+            </td>
+            <td>
+                <span class="product-cat-txt">${escapeHtml(t.date)}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${badgeClass}">${escapeHtml(t.status)}</span>
+            </td>
+            <td class="text-center">
+                <button class="icon-btn-subtle btn-view-transfer" data-id="${escapeHtml(t.id)}" title="View Transfer Slip">
+                    <i class="fa-regular fa-file-lines"></i>
+                </button>
+            </td>
+        `;
+
+        const viewBtn = tr.querySelector('.btn-view-transfer');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                showNotification(`Transfer manifest #${t.id} loaded. Ref: ${t.reference}`, 'info');
+            });
+        }
+
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Filter transfers by search keyword and status
+ */
+function getFilteredTransfers() {
+    const searchInput = document.getElementById('transfers-search-input');
+    const statusSelect = document.getElementById('transfers-status-filter');
+
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const selectedStatus = statusSelect ? statusSelect.value : 'ALL';
+
+    return transfersData.filter(item => {
+        const matchesSearch = query === '' ||
+            item.id.toLowerCase().includes(query) ||
+            (item.reference && item.reference.toLowerCase().includes(query)) ||
+            item.productName.toLowerCase().includes(query) ||
+            item.productSku.toLowerCase().includes(query) ||
+            item.sourceWarehouse.toLowerCase().includes(query) ||
+            item.destWarehouse.toLowerCase().includes(query);
+
+        const matchesStatus = selectedStatus === 'ALL' || item.status === selectedStatus;
+
+        return matchesSearch && matchesStatus;
+    });
+}
+
+/**
+ * Sets up event listeners for Transfers view
+ */
+function setupTransfersInteractions() {
+    const productSelect = document.getElementById('transfer-product');
+    const sourceSelect = document.getElementById('transfer-source');
+    const destSelect = document.getElementById('transfer-dest');
+    const qtyInput = document.getElementById('transfer-quantity');
+    const searchInput = document.getElementById('transfers-search-input');
+    const clearBtn = document.getElementById('transfers-search-clear');
+    const statusFilter = document.getElementById('transfers-status-filter');
+
+    const handleSummaryChange = () => {
+        clearTransferErrors();
+        updateTransferSummary();
+    };
+
+    if (productSelect) productSelect.addEventListener('change', handleSummaryChange);
+    if (sourceSelect) sourceSelect.addEventListener('change', handleSummaryChange);
+    if (destSelect) destSelect.addEventListener('change', handleSummaryChange);
+    if (qtyInput) qtyInput.addEventListener('input', handleSummaryChange);
+
+    const handleFilterChange = () => {
+        if (clearBtn && searchInput) {
+            clearBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+        }
+        renderTransfersTable(getFilteredTransfers());
+    };
+
+    if (searchInput) searchInput.addEventListener('input', handleFilterChange);
+    if (clearBtn && searchInput) {
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            handleFilterChange();
+            searchInput.focus();
+        });
+    }
+    if (statusFilter) statusFilter.addEventListener('change', handleFilterChange);
+}
+
+/* ==========================================================================
+   Stock Adjustments Operations & Physical Count Reconciliation
+   ========================================================================== */
+
+/**
+ * Populates product and warehouse select dropdowns on Stock Adjustment form
+ */
+function populateAdjustmentDropdowns() {
+    const productSelect = document.getElementById('adjustment-product');
+    const warehouseSelect = document.getElementById('adjustment-warehouse');
+
+    if (productSelect) {
+        const curProdVal = productSelect.value;
+        productSelect.innerHTML = '<option value="">Select Product</option>';
+        productsData.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} (${p.sku}) - ${p.unit}`;
+            productSelect.appendChild(opt);
+        });
+
+        if (curProdVal && productsData.some(p => p.id == curProdVal)) {
+            productSelect.value = curProdVal;
+        } else if (productsData.length > 0) {
+            productSelect.value = productsData[0].id;
+        }
+    }
+
+    if (warehouseSelect) {
+        const curWarehouse = warehouseSelect.value || 'Main Warehouse';
+        warehouseSelect.innerHTML = '';
+        warehousesData.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = w;
+            opt.textContent = w;
+            if (w === curWarehouse) opt.selected = true;
+            warehouseSelect.appendChild(opt);
+        });
+    }
+}
+
+/**
+ * Sets current date as default for adjustment form
+ */
+function setDefaultAdjustmentDate() {
+    const dateInput = document.getElementById('adjustment-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+/**
+ * Auto-loads recorded quantity based on selected product and warehouse
+ */
+function updateRecordedQuantity() {
+    const productSelect = document.getElementById('adjustment-product');
+    const warehouseSelect = document.getElementById('adjustment-warehouse');
+    const recordedInput = document.getElementById('adjustment-recorded-qty');
+
+    const productId = productSelect ? Number(productSelect.value) : null;
+    const warehouse = warehouseSelect ? warehouseSelect.value : 'Main Warehouse';
+
+    const product = productsData.find(p => p.id === productId);
+    if (!product) {
+        if (recordedInput) recordedInput.value = '';
+        updateAdjustmentSummary();
+        return;
+    }
+
+    const recordedStock = warehouse === 'Main Warehouse'
+        ? Number(product.mainWarehouseStock || 0)
+        : Number(product.productionFloorStock || 0);
+
+    if (recordedInput) {
+        recordedInput.value = recordedStock;
+    }
+
+    updateAdjustmentSummary();
+}
+
+/**
+ * Updates Adjustment live summary card and calculates discrepancy difference
+ */
+function updateAdjustmentSummary() {
+    const productSelect = document.getElementById('adjustment-product');
+    const warehouseSelect = document.getElementById('adjustment-warehouse');
+    const reasonSelect = document.getElementById('adjustment-reason');
+    const countedInput = document.getElementById('adjustment-counted-qty');
+
+    const elProdName = document.getElementById('adjustment-summary-product');
+    const elSkuTag = document.getElementById('adjustment-summary-sku');
+    const elCategory = document.getElementById('adjustment-summary-category');
+    const elWarehouse = document.getElementById('adjustment-summary-warehouse');
+    const elReason = document.getElementById('adjustment-summary-reason');
+    const elRecorded = document.getElementById('adjustment-summary-recorded');
+    const elCounted = document.getElementById('adjustment-summary-counted');
+    const elDiffContainer = document.getElementById('adjustment-summary-diff-container');
+    const elFinal = document.getElementById('adjustment-summary-final');
+    const elProgressBar = document.getElementById('adjustment-progress-bar');
+    const elImpact = document.getElementById('adjustment-summary-impact');
+
+    const productId = productSelect ? Number(productSelect.value) : null;
+    const warehouse = warehouseSelect ? warehouseSelect.value : 'Main Warehouse';
+    const reason = reasonSelect ? reasonSelect.value : '';
+
+    const product = productsData.find(p => p.id === productId);
+
+    if (elWarehouse) elWarehouse.textContent = warehouse;
+    if (elReason) elReason.textContent = reason ? `Reason: ${reason}` : 'Reason: Not selected';
+
+    if (!product) {
+        if (elProdName) elProdName.textContent = 'Select a product above';
+        if (elSkuTag) elSkuTag.textContent = '---';
+        if (elCategory) elCategory.textContent = 'Category: ---';
+        if (elRecorded) elRecorded.textContent = '0';
+        if (elCounted) elCounted.textContent = '0';
+        if (elDiffContainer) elDiffContainer.innerHTML = '<span class="badge badge-diff-neutral"><i class="fa-solid fa-minus"></i> 0</span>';
+        if (elFinal) elFinal.textContent = '0';
+        if (elImpact) elImpact.textContent = '0';
+        return;
+    }
+
+    if (elProdName) elProdName.textContent = product.name;
+    if (elSkuTag) elSkuTag.textContent = product.sku;
+    if (elCategory) elCategory.textContent = `Category: ${product.category}`;
+
+    const recordedStock = warehouse === 'Main Warehouse'
+        ? Number(product.mainWarehouseStock || 0)
+        : Number(product.productionFloorStock || 0);
+
+    const hasCountedInput = countedInput && countedInput.value.trim() !== '' && !isNaN(Number(countedInput.value));
+    const countedQty = hasCountedInput ? Math.max(0, Number(countedInput.value)) : recordedStock;
+    const difference = countedQty - recordedStock;
+
+    if (elRecorded) elRecorded.textContent = `${recordedStock.toLocaleString()} ${product.unit}`;
+    if (elCounted) {
+        elCounted.textContent = hasCountedInput ? `${countedQty.toLocaleString()} ${product.unit}` : 'Pending count input';
+    }
+
+    if (elDiffContainer) {
+        if (!hasCountedInput) {
+            elDiffContainer.innerHTML = '<span class="badge badge-neutral"><i class="fa-solid fa-hourglass-half"></i> Awaiting Count</span>';
+        } else if (difference > 0) {
+            elDiffContainer.innerHTML = `<span class="badge badge-diff-positive"><i class="fa-solid fa-arrow-trend-up"></i> +${difference.toLocaleString()} ${product.unit} (Surplus)</span>`;
+        } else if (difference < 0) {
+            elDiffContainer.innerHTML = `<span class="badge badge-diff-negative"><i class="fa-solid fa-arrow-trend-down"></i> ${difference.toLocaleString()} ${product.unit} (Deficit)</span>`;
+        } else {
+            elDiffContainer.innerHTML = `<span class="badge badge-diff-neutral"><i class="fa-solid fa-check"></i> Exact Match (0 ${product.unit})</span>`;
+        }
+    }
+
+    const finalStock = hasCountedInput ? countedQty : recordedStock;
+    if (elFinal) elFinal.textContent = `${finalStock.toLocaleString()} ${product.unit}`;
+
+    if (elProgressBar) {
+        const ratio = recordedStock > 0 ? Math.min(100, Math.round((finalStock / recordedStock) * 100)) : 100;
+        elProgressBar.style.width = `${ratio}%`;
+        if (difference < 0) {
+            elProgressBar.style.backgroundColor = 'var(--danger)';
+        } else if (difference > 0) {
+            elProgressBar.style.backgroundColor = 'var(--success)';
+        } else {
+            elProgressBar.style.backgroundColor = 'var(--primary)';
+        }
+    }
+
+    if (elImpact) {
+        if (!hasCountedInput || difference === 0) {
+            elImpact.textContent = `No net change (0 ${product.unit})`;
+        } else if (difference > 0) {
+            elImpact.textContent = `+${difference.toLocaleString()} ${product.unit} to warehouse total`;
+        } else {
+            elImpact.textContent = `${difference.toLocaleString()} ${product.unit} removed from warehouse`;
+        }
+    }
+}
+
+/**
+ * Updates top mini-metrics for Stock Adjustments view
+ */
+function updateAdjustmentsMetrics() {
+    const elCount = document.getElementById('adjustments-stat-count');
+    const elVariance = document.getElementById('adjustments-stat-variance');
+    const elCompleted = document.getElementById('adjustments-stat-completed');
+    const elReviewed = document.getElementById('adjustments-stat-reviewed');
+
+    if (elCount) elCount.textContent = adjustmentsData.length;
+
+    let netVariance = 0;
+    let completedCount = 0;
+    let reviewedCount = 0;
+
+    adjustmentsData.forEach(adj => {
+        if (adj.status === 'Completed') {
+            netVariance += Number(adj.difference || 0);
+            completedCount += 1;
+        } else if (adj.status === 'Reviewed') {
+            reviewedCount += 1;
+        }
+    });
+
+    if (elVariance) {
+        if (netVariance > 0) {
+            elVariance.textContent = `+${netVariance}`;
+            elVariance.className = 'mini-metric-val text-success';
+        } else if (netVariance < 0) {
+            elVariance.textContent = `${netVariance}`;
+            elVariance.className = 'mini-metric-val text-danger';
+        } else {
+            elVariance.textContent = '0';
+            elVariance.className = 'mini-metric-val';
+        }
+    }
+
+    if (elCompleted) elCompleted.textContent = completedCount;
+    if (elReviewed) elReviewed.textContent = reviewedCount;
+}
+
+/**
+ * Handles Stock Adjustment Form Submission
+ */
+function handleAdjustmentSubmit(e) {
+    e.preventDefault();
+
+    const productSelect = document.getElementById('adjustment-product');
+    const warehouseSelect = document.getElementById('adjustment-warehouse');
+    const countedInput = document.getElementById('adjustment-counted-qty');
+    const reasonSelect = document.getElementById('adjustment-reason');
+    const dateInput = document.getElementById('adjustment-date');
+    const notesInput = document.getElementById('adjustment-notes');
+    const errorBox = document.getElementById('adjustment-form-error');
+
+    const statusRadio = document.querySelector('input[name="adjustment-status"]:checked');
+    const status = statusRadio ? statusRadio.value : 'Completed';
+
+    clearAdjustmentErrors();
+    if (errorBox) errorBox.style.display = 'none';
+
+    let hasErrors = false;
+
+    const productId = Number(productSelect.value);
+    const product = productsData.find(p => p.id === productId);
+    if (!productId || !product) {
+        setFieldError('err-adjustment-product', productSelect, 'Please select a product');
+        hasErrors = true;
+    }
+
+    const warehouse = warehouseSelect.value;
+    if (!warehouse) {
+        setFieldError('err-adjustment-warehouse', warehouseSelect, 'Please select a warehouse location');
+        hasErrors = true;
+    }
+
+    const countedQty = Number(countedInput.value);
+    if (countedInput.value.trim() === '' || isNaN(countedQty) || countedQty < 0) {
+        setFieldError('err-adjustment-counted-qty', countedInput, 'Counted quantity must be a non-negative number (>= 0)');
+        hasErrors = true;
+    }
+
+    const reason = reasonSelect.value;
+    if (!reason) {
+        setFieldError('err-adjustment-reason', reasonSelect, 'Please select an adjustment reason');
+        hasErrors = true;
+    }
+
+    const adjDate = dateInput.value;
+    if (!adjDate) {
+        setFieldError('err-adjustment-date', dateInput, 'Please select an adjustment date');
+        hasErrors = true;
+    }
+
+    if (hasErrors) {
+        if (errorBox) {
+            errorBox.textContent = 'Please correct the highlighted fields before applying adjustment.';
+            errorBox.style.display = 'block';
+        }
+        return;
+    }
+
+    const recordedStock = warehouse === 'Main Warehouse'
+        ? Number(product.mainWarehouseStock || 0)
+        : Number(product.productionFloorStock || 0);
+
+    const difference = countedQty - recordedStock;
+
+    // Construct new Adjustment record
+    const newAdjustment = {
+        id: `ADJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku,
+        warehouse: warehouse,
+        recordedQty: recordedStock,
+        countedQty: countedQty,
+        difference: difference,
+        unit: product.unit,
+        reason: reason,
+        date: adjDate,
+        status: status,
+        notes: notesInput ? notesInput.value.trim() : ''
+    };
+
+    // Overwrite sample stock data so final stock matches counted quantity!
+    // In production: Replace with fetch('/api/adjustments', { method: 'POST', body: JSON.stringify(newAdjustment) }) later
+    if (status === 'Completed') {
+        if (warehouse === 'Main Warehouse') {
+            product.mainWarehouseStock = countedQty;
+        } else if (warehouse === 'Production Floor') {
+            product.productionFloorStock = countedQty;
+        }
+
+        // Add to recent stock movements log
+        // In production: Replace with fetch('/api/movements', { method: 'POST', body: ... }) later
+        stockMovements.unshift({
+            id: newAdjustment.id,
+            timestamp: 'Just now',
+            productName: product.name,
+            type: 'Adjustment',
+            quantity: difference >= 0 ? `+${difference}` : `${difference}`,
+            route: `${warehouse} (${reason})`,
+            user: 'Alex Morgan'
+        });
+
+        // Update dashboard metrics with difference delta
+        updateDashboardMetrics(difference);
+    }
+
+    // Add adjustment to data array
+    adjustmentsData.unshift(newAdjustment);
+
+    // Refresh UI across all views
+    renderAdjustmentsTable(getFilteredAdjustments());
+    renderProductsTable(getFilteredProducts());
+    renderMovementsTable(stockMovements);
+    updateProductsMetrics();
+    updateAdjustmentsMetrics();
+    updateRecordedQuantity();
+    updateAdjustmentSummary();
+    updateReceiveSummary();
+    updateDeliverySummary();
+    updateTransferSummary();
+
+    // Clear item inputs for next count
+    if (countedInput) countedInput.value = '';
+    if (notesInput) notesInput.value = '';
+
+    // Show temporary success toast
+    showNotification('Stock adjusted successfully', 'success', 3500);
+}
+
+function clearAdjustmentErrors() {
+    const errorElements = document.querySelectorAll('[id^="err-adjustment-"]');
+    errorElements.forEach(el => el.textContent = '');
+
+    const inputs = document.querySelectorAll('#form-stock-adjustment .has-error');
+    inputs.forEach(el => el.classList.remove('has-error'));
+
+    const errorBox = document.getElementById('adjustment-form-error');
+    if (errorBox) errorBox.style.display = 'none';
+}
+
+function resetAdjustmentForm() {
+    const form = document.getElementById('form-stock-adjustment');
+    if (form) form.reset();
+    clearAdjustmentErrors();
+    populateAdjustmentDropdowns();
+    setDefaultAdjustmentDate();
+    updateRecordedQuantity();
+    updateAdjustmentSummary();
+}
+
+/**
+ * Renders Recent Adjustments Table
+ */
+function renderAdjustmentsTable(adjustments) {
+    const tbody = document.getElementById('adjustments-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (adjustments.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" class="empty-table-row">
+                    <div class="empty-icon"><i class="fa-solid fa-sliders"></i></div>
+                    <p>No adjustments recorded matching the current filter.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    adjustments.forEach(adj => {
+        const tr = document.createElement('tr');
+
+        // Status badge
+        let badgeClass = 'badge-status-completed';
+        if (adj.status === 'Reviewed') badgeClass = 'badge-status-reviewed';
+
+        // Difference badge
+        let diffBadge = '';
+        if (adj.difference > 0) {
+            diffBadge = `<span class="badge badge-diff-positive"><i class="fa-solid fa-arrow-trend-up"></i> +${adj.difference}</span>`;
+        } else if (adj.difference < 0) {
+            diffBadge = `<span class="badge badge-diff-negative"><i class="fa-solid fa-arrow-trend-down"></i> ${adj.difference}</span>`;
+        } else {
+            diffBadge = `<span class="badge badge-diff-neutral"><i class="fa-solid fa-minus"></i> 0</span>`;
+        }
+
+        tr.innerHTML = `
+            <td>
+                <strong class="sku-badge">${escapeHtml(adj.id)}</strong>
+            </td>
+            <td>
+                <div class="product-cell">
+                    <span class="product-name-txt">${escapeHtml(adj.productName)}</span>
+                    <span class="product-cat-txt">${escapeHtml(adj.productSku)}</span>
+                </div>
+            </td>
+            <td>
+                <span class="warehouse-tag">
+                    <i class="fa-solid fa-location-dot"></i>
+                    ${escapeHtml(adj.warehouse)}
+                </span>
+            </td>
+            <td class="text-right">
+                <span class="qty-val">${adj.recordedQty.toLocaleString()}</span>
+            </td>
+            <td class="text-right">
+                <span class="qty-val font-bold">${adj.countedQty.toLocaleString()}</span>
+            </td>
+            <td class="text-center">
+                ${diffBadge}
+            </td>
+            <td>
+                <span class="badge badge-neutral">${escapeHtml(adj.reason)}</span>
+            </td>
+            <td>
+                <span class="product-cat-txt">${escapeHtml(adj.date)}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${badgeClass}">${escapeHtml(adj.status)}</span>
+            </td>
+            <td class="text-center">
+                <button class="icon-btn-subtle btn-view-adjustment" data-id="${escapeHtml(adj.id)}" title="View Adjustment Slip">
+                    <i class="fa-regular fa-file-lines"></i>
+                </button>
+            </td>
+        `;
+
+        const viewBtn = tr.querySelector('.btn-view-adjustment');
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => {
+                showNotification(`Adjustment Slip #${adj.id} loaded. Reason: ${adj.reason}`, 'info');
+            });
+        }
+
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Filter adjustments by search keyword, reason, and status
+ */
+function getFilteredAdjustments() {
+    const searchInput = document.getElementById('adjustments-search-input');
+    const reasonSelect = document.getElementById('adjustments-reason-filter');
+    const statusSelect = document.getElementById('adjustments-status-filter');
+
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const selectedReason = reasonSelect ? reasonSelect.value : 'ALL';
+    const selectedStatus = statusSelect ? statusSelect.value : 'ALL';
+
+    return adjustmentsData.filter(item => {
+        const matchesSearch = query === '' ||
+            item.id.toLowerCase().includes(query) ||
+            item.productName.toLowerCase().includes(query) ||
+            item.productSku.toLowerCase().includes(query) ||
+            item.warehouse.toLowerCase().includes(query) ||
+            item.reason.toLowerCase().includes(query);
+
+        const matchesReason = selectedReason === 'ALL' || item.reason === selectedReason;
+        const matchesStatus = selectedStatus === 'ALL' || item.status === selectedStatus;
+
+        return matchesSearch && matchesReason && matchesStatus;
+    });
+}
+
+/**
+ * Sets up event listeners for Stock Adjustments view
+ */
+function setupAdjustmentsInteractions() {
+    const productSelect = document.getElementById('adjustment-product');
+    const warehouseSelect = document.getElementById('adjustment-warehouse');
+    const reasonSelect = document.getElementById('adjustment-reason');
+    const countedInput = document.getElementById('adjustment-counted-qty');
+    const searchInput = document.getElementById('adjustments-search-input');
+    const clearBtn = document.getElementById('adjustments-search-clear');
+    const reasonFilter = document.getElementById('adjustments-reason-filter');
+    const statusFilter = document.getElementById('adjustments-status-filter');
+
+    if (productSelect) {
+        productSelect.addEventListener('change', () => {
+            clearAdjustmentErrors();
+            updateRecordedQuantity();
+        });
+    }
+
+    if (warehouseSelect) {
+        warehouseSelect.addEventListener('change', () => {
+            clearAdjustmentErrors();
+            updateRecordedQuantity();
+        });
+    }
+
+    if (reasonSelect) {
+        reasonSelect.addEventListener('change', () => {
+            clearAdjustmentErrors();
+            updateAdjustmentSummary();
+        });
+    }
+
+    if (countedInput) {
+        countedInput.addEventListener('input', () => {
+            clearAdjustmentErrors();
+            updateAdjustmentSummary();
+        });
+    }
+
+    const handleFilterChange = () => {
+        if (clearBtn && searchInput) {
+            clearBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+        }
+        renderAdjustmentsTable(getFilteredAdjustments());
+    };
+
+    if (searchInput) searchInput.addEventListener('input', handleFilterChange);
+    if (clearBtn && searchInput) {
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            handleFilterChange();
+            searchInput.focus();
+        });
+    }
+    if (reasonFilter) reasonFilter.addEventListener('change', handleFilterChange);
+    if (statusFilter) statusFilter.addEventListener('change', handleFilterChange);
+}
+
+/* ==========================================================================
    Receive Stock Operations & Dynamic Live Summary
    ========================================================================== */
 
@@ -1440,21 +2822,45 @@ function clearReceiveErrors() {
     if (errorBox) errorBox.style.display = 'none';
 }
 
-function updateDashboardMetrics(addedUnits = 0) {
+// In production: Replace with fetch('/api/dashboard/stats') or Firestore aggregate query
+function updateDashboardStats() {
+    const elDashProducts = document.getElementById('dashboard-total-products');
     const elDashStockUnits = document.getElementById('dashboard-total-stock-units');
+    const elDashLowStock = document.getElementById('dashboard-low-stock-count');
     const elDashMovements = document.getElementById('dashboard-movements-count');
+    const elLowStockBadge = document.getElementById('low-stock-count-badge');
 
-    if (elDashStockUnits) {
-        let currentTotal = parseInt(elDashStockUnits.textContent.replace(/,/g, ''), 10) || 12840;
-        currentTotal += addedUnits;
-        elDashStockUnits.textContent = currentTotal.toLocaleString();
-    }
+    const totalProducts = productsData.length;
+    let totalStockUnits = 0;
+    let lowStockCount = 0;
 
-    if (elDashMovements) {
-        let currentMov = parseInt(elDashMovements.textContent, 10) || 24;
-        currentMov += 1;
-        elDashMovements.textContent = currentMov;
+    productsData.forEach(p => {
+        const total = (p.mainWarehouseStock || 0) + (p.productionFloorStock || 0);
+        totalStockUnits += total;
+        if (total <= (p.reorderLevel || 0)) {
+            lowStockCount++;
+        }
+    });
+
+    const allMovements = getAllMovements();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayCount = allMovements.filter(m => m.date === todayStr || m.date === "2024-09-26").length;
+
+    if (elDashProducts) elDashProducts.textContent = totalProducts.toLocaleString();
+    if (elDashStockUnits) elDashStockUnits.textContent = totalStockUnits.toLocaleString();
+    if (elDashLowStock) elDashLowStock.textContent = lowStockCount;
+    if (elDashMovements) elDashMovements.textContent = todayCount;
+    if (elLowStockBadge) elLowStockBadge.textContent = `${lowStockCount} Items Alerting`;
+
+    renderLowStockTableFromProducts();
+    const whView = document.getElementById('view-warehouses');
+    if (whView && whView.classList.contains('active')) {
+        renderWarehouses();
     }
+}
+
+function updateDashboardMetrics(addedUnits = 0) {
+    updateDashboardStats();
 }
 
 /* ==========================================================================
@@ -1710,11 +3116,21 @@ function setupForms() {
     const editForm = document.getElementById('form-edit-product');
     const receiveForm = document.getElementById('form-receive-stock');
     const deliveryForm = document.getElementById('form-delivery-order');
+    const transferForm = document.getElementById('form-transfer-order');
+    const adjustmentForm = document.getElementById('form-stock-adjustment');
 
     if (addForm) addForm.addEventListener('submit', handleAddProductSubmit);
     if (editForm) editForm.addEventListener('submit', handleEditProductSubmit);
     if (receiveForm) receiveForm.addEventListener('submit', handleReceiveStockSubmit);
     if (deliveryForm) deliveryForm.addEventListener('submit', handleDeliveryOrderSubmit);
+    if (transferForm) transferForm.addEventListener('submit', handleTransferSubmit);
+    if (adjustmentForm) adjustmentForm.addEventListener('submit', handleAdjustmentSubmit);
+
+    const resetTransferBtn = document.getElementById('btn-reset-transfer');
+    if (resetTransferBtn) resetTransferBtn.addEventListener('click', resetTransferForm);
+
+    const resetAdjBtn = document.getElementById('btn-reset-adjustment');
+    if (resetAdjBtn) resetAdjBtn.addEventListener('click', resetAdjustmentForm);
 }
 
 function handleAddProductSubmit(e) {
@@ -1997,6 +3413,34 @@ function clearFormErrors(prefix) {
 /* ==========================================================================
    Dashboard Tables & Search
    ========================================================================== */
+function getLowStockProductsFromCatalog() {
+    return productsData
+        .filter(p => ((p.mainWarehouseStock || 0) + (p.productionFloorStock || 0)) <= (p.reorderLevel || 0))
+        .map(p => {
+            const total = (p.mainWarehouseStock || 0) + (p.productionFloorStock || 0);
+            let whLabel = "Main Warehouse";
+            if (p.mainWarehouseStock > 0 && p.productionFloorStock > 0) whLabel = "Multiple Facilities";
+            else if (p.productionFloorStock > 0) whLabel = "Production Floor";
+            else if (total === 0) whLabel = "All Facilities (Out of Stock)";
+
+            return {
+                id: p.id,
+                name: p.name,
+                category: p.category,
+                sku: p.sku,
+                warehouse: whLabel,
+                currentQty: total,
+                reorderLevel: p.reorderLevel,
+                status: total === 0 ? "Out of Stock" : "Reorder"
+            };
+        });
+}
+
+function renderLowStockTableFromProducts() {
+    const list = getLowStockProductsFromCatalog();
+    renderLowStockTable(list);
+}
+
 function renderLowStockTable(products) {
     const tbody = document.getElementById('low-stock-tbody');
     const badgeCount = document.getElementById('low-stock-count-badge');
@@ -2287,7 +3731,7 @@ function setupActionButtons() {
     const btnManageWarehouses = document.getElementById('btn-manage-warehouses');
     if (btnManageWarehouses) {
         btnManageWarehouses.addEventListener('click', () => {
-            showNotification('Navigating to Warehouse Facilities manager...', 'info');
+            navigateTo('Warehouses');
         });
     }
 
@@ -2366,3 +3810,701 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+/* ==========================================================================
+   Reusable View Renderers
+   ========================================================================== */
+function renderDashboard() {
+    renderLowStockTableFromProducts();
+    renderMovementsTable(stockMovements);
+    updateDashboardStats();
+}
+
+function renderProducts() {
+    renderProductsTable(getFilteredProducts());
+    updateProductsMetrics();
+}
+
+function renderReceipts() {
+    populateReceiveProductDropdown();
+    renderReceiptsTable(getFilteredReceipts());
+    updateReceiveSummary();
+    updateReceiptsMetrics();
+}
+
+function renderDeliveries() {
+    populateDeliveryProductDropdown();
+    renderDeliveriesTable(getFilteredDeliveries());
+    updateDeliverySummary();
+    updateDeliveriesMetrics();
+}
+
+function renderTransfers() {
+    populateTransferDropdowns();
+    renderTransfersTable(getFilteredTransfers());
+    updateTransferSummary();
+    updateTransfersMetrics();
+}
+
+function renderAdjustments() {
+    populateAdjustmentDropdowns();
+    renderAdjustmentsTable(getFilteredAdjustments());
+    updateRecordedQuantity();
+    updateAdjustmentSummary();
+    updateAdjustmentsMetrics();
+}
+
+function renderMovementHistory() {
+    populateHistoryProductDropdown();
+    applyMovementFilters();
+}
+
+/* ==========================================================================
+   Movement History Ledger Module
+   ========================================================================== */
+let movementSortState = {
+    column: 'date',
+    direction: 'desc'
+};
+
+// In production: Replace with fetch('/api/movements') or Firestore collection query
+function getAllMovements() {
+    const list = [];
+
+    // Map receiptsData
+    receiptsData.forEach(r => {
+        list.push(normalizeMovementRecord(r, 'Receipt'));
+    });
+
+    // Map deliveriesData
+    deliveriesData.forEach(d => {
+        list.push(normalizeMovementRecord(d, 'Delivery'));
+    });
+
+    // Map transfersData
+    transfersData.forEach(t => {
+        list.push(normalizeMovementRecord(t, 'Transfer'));
+    });
+
+    // Map adjustmentsData
+    adjustmentsData.forEach(a => {
+        list.push(normalizeMovementRecord(a, 'Adjustment'));
+    });
+
+    return list;
+}
+
+function normalizeMovementRecord(record, type) {
+    if (type === 'Receipt') {
+        return {
+            id: record.id,
+            type: 'Receipt',
+            productId: record.productId,
+            productName: record.productName,
+            sku: record.productSku || 'SKU-REC',
+            source: record.supplier || 'Supplier Inbound',
+            destination: record.warehouse || 'Main Warehouse',
+            warehouse: record.warehouse || 'Main Warehouse',
+            quantityDisplay: `+${record.quantity} ${record.unit || 'pcs'}`,
+            rawQuantity: record.quantity,
+            reference: record.notes || 'Purchase Order Inbound',
+            date: record.date,
+            user: 'Alex Morgan',
+            status: record.status || 'Completed'
+        };
+    } else if (type === 'Delivery') {
+        return {
+            id: record.id,
+            type: 'Delivery',
+            productId: record.productId,
+            productName: record.productName,
+            sku: record.productSku || 'SKU-DEL',
+            source: record.warehouse || 'Main Warehouse',
+            destination: record.customer || 'Customer Dispatch',
+            warehouse: record.warehouse || 'Main Warehouse',
+            quantityDisplay: `-${record.quantity} ${record.unit || 'pcs'}`,
+            rawQuantity: -record.quantity,
+            reference: record.orderRef || 'Sales Order Dispatch',
+            date: record.date,
+            user: 'Marcus Reed',
+            status: record.status || 'Completed'
+        };
+    } else if (type === 'Transfer') {
+        return {
+            id: record.id,
+            type: 'Transfer',
+            productId: record.productId,
+            productName: record.productName,
+            sku: record.productSku || 'SKU-TRF',
+            source: record.sourceWarehouse || 'Main Warehouse',
+            destination: record.destWarehouse || 'Production Floor',
+            warehouse: `${record.sourceWarehouse} → ${record.destWarehouse}`,
+            quantityDisplay: `${record.quantity} ${record.unit || 'pcs'}`,
+            rawQuantity: record.quantity,
+            reference: record.reference || 'Stock Rebalance',
+            date: record.date,
+            user: 'Devon Clark',
+            status: record.status || 'Completed'
+        };
+    } else if (type === 'Adjustment') {
+        const sign = record.difference > 0 ? '+' : '';
+        return {
+            id: record.id,
+            type: 'Adjustment',
+            productId: record.productId,
+            productName: record.productName,
+            sku: record.productSku || 'SKU-ADJ',
+            source: `System: ${record.recordedQty}`,
+            destination: `Physical: ${record.countedQty}`,
+            warehouse: record.warehouse || 'Main Warehouse',
+            quantityDisplay: `${sign}${record.difference} units`,
+            rawQuantity: record.difference,
+            reference: record.reason || 'Cycle Audit Discrepancy',
+            date: record.date,
+            user: 'Alex Morgan',
+            status: record.status || 'Completed'
+        };
+    }
+}
+
+function sortMovements(movements, column, direction) {
+    return [...movements].sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+
+        if (column === 'quantity') {
+            valA = Math.abs(a.rawQuantity);
+            valB = Math.abs(b.rawQuantity);
+        } else if (column === 'date') {
+            valA = new Date(a.date).getTime() || 0;
+            valB = new Date(b.date).getTime() || 0;
+        }
+
+        if (valA < valB) return direction === 'asc' ? -1 : 1;
+        if (valA > valB) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+
+function populateHistoryProductDropdown() {
+    const select = document.getElementById('history-product-filter');
+    if (!select) return;
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="ALL">All Products</option>';
+
+    productsData.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} (${p.sku})`;
+        select.appendChild(opt);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+function applyMovementFilters() {
+    let list = getAllMovements();
+
+    const searchInput = document.getElementById('history-search-input');
+    const typeFilter = document.getElementById('history-type-filter');
+    const productFilter = document.getElementById('history-product-filter');
+    const warehouseFilter = document.getElementById('history-warehouse-filter');
+    const statusFilter = document.getElementById('history-status-filter');
+    const dateFilter = document.getElementById('history-date-filter');
+    const clearSearchBtn = document.getElementById('history-search-clear');
+
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    if (clearSearchBtn) {
+        clearSearchBtn.style.display = query ? 'block' : 'none';
+    }
+
+    if (query) {
+        list = list.filter(m => 
+            (m.productName && m.productName.toLowerCase().includes(query)) ||
+            (m.sku && m.sku.toLowerCase().includes(query)) ||
+            (m.id && m.id.toLowerCase().includes(query)) ||
+            (m.reference && m.reference.toLowerCase().includes(query))
+        );
+    }
+
+    const selType = typeFilter ? typeFilter.value : 'ALL';
+    if (selType && selType !== 'ALL') {
+        list = list.filter(m => m.type.toLowerCase() === selType.toLowerCase());
+    }
+
+    const selProduct = productFilter ? productFilter.value : 'ALL';
+    if (selProduct && selProduct !== 'ALL') {
+        list = list.filter(m => String(m.productId) === String(selProduct));
+    }
+
+    const selWarehouse = warehouseFilter ? warehouseFilter.value : 'ALL';
+    if (selWarehouse && selWarehouse !== 'ALL') {
+        list = list.filter(m => 
+            (m.warehouse && m.warehouse.toLowerCase().includes(selWarehouse.toLowerCase())) ||
+            (m.source && m.source.toLowerCase().includes(selWarehouse.toLowerCase())) ||
+            (m.destination && m.destination.toLowerCase().includes(selWarehouse.toLowerCase()))
+        );
+    }
+
+    const selStatus = statusFilter ? statusFilter.value : 'ALL';
+    if (selStatus && selStatus !== 'ALL') {
+        list = list.filter(m => m.status.toLowerCase() === selStatus.toLowerCase());
+    }
+
+    const selDate = dateFilter ? dateFilter.value : '';
+    if (selDate) {
+        list = list.filter(m => m.date === selDate);
+    }
+
+    // Apply sorting
+    list = sortMovements(list, movementSortState.column, movementSortState.direction);
+
+    // Update 5 summary cards
+    updateMovementSummary(list);
+
+    // Render table rows
+    renderMovementTable(list);
+}
+
+function updateMovementSummary(movements) {
+    const elTotal = document.getElementById('history-stat-total');
+    const elReceipts = document.getElementById('history-stat-receipts');
+    const elDeliveries = document.getElementById('history-stat-deliveries');
+    const elTransfers = document.getElementById('history-stat-transfers');
+    const elAdjustments = document.getElementById('history-stat-adjustments');
+
+    let total = movements.length;
+    let receipts = 0;
+    let deliveries = 0;
+    let transfers = 0;
+    let adjustments = 0;
+
+    movements.forEach(m => {
+        if (m.type === 'Receipt') receipts++;
+        else if (m.type === 'Delivery') deliveries++;
+        else if (m.type === 'Transfer') transfers++;
+        else if (m.type === 'Adjustment') adjustments++;
+    });
+
+    if (elTotal) elTotal.textContent = total;
+    if (elReceipts) elReceipts.textContent = receipts;
+    if (elDeliveries) elDeliveries.textContent = deliveries;
+    if (elTransfers) elTransfers.textContent = transfers;
+    if (elAdjustments) elAdjustments.textContent = adjustments;
+}
+
+function renderMovementTable(movements) {
+    const tbody = document.getElementById('history-tbody');
+    if (!tbody) return;
+
+    if (!movements || movements.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="13" class="empty-table-row">
+                    <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+                    <p>No inventory movements found matching your criteria.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = movements.map(m => {
+        const typeClass = `badge-type-${m.type.toLowerCase()}`;
+        let statusClass = 'badge-status-completed';
+        if (m.status === 'Draft' || m.status === 'Pending') statusClass = 'badge-status-draft';
+        else if (m.status === 'In Transit') statusClass = 'badge-status-in-transit';
+        else if (m.status === 'Packed') statusClass = 'badge-status-packed';
+        else if (m.status === 'Reviewed') statusClass = 'badge-status-reviewed';
+
+        const qtyColor = m.type === 'Receipt' ? 'text-success font-weight-bold' : (m.type === 'Delivery' ? 'text-danger font-weight-bold' : 'font-weight-bold');
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(m.id)}</strong></td>
+                <td><span class="badge ${typeClass}">${escapeHtml(m.type)}</span></td>
+                <td><strong>${escapeHtml(m.productName)}</strong></td>
+                <td><span class="sku-code">${escapeHtml(m.sku)}</span></td>
+                <td>${escapeHtml(m.source)}</td>
+                <td>${escapeHtml(m.destination)}</td>
+                <td>${escapeHtml(m.warehouse)}</td>
+                <td class="text-right ${qtyColor}">${escapeHtml(m.quantityDisplay)}</td>
+                <td>${escapeHtml(m.reference)}</td>
+                <td>${escapeHtml(m.date)}</td>
+                <td>${escapeHtml(m.user)}</td>
+                <td class="text-center"><span class="badge ${statusClass}">${escapeHtml(m.status)}</span></td>
+                <td class="text-center">
+                    <button type="button" class="btn-action" onclick="viewMovementDetails('${escapeHtml(m.id)}')" title="View Movement Slip">
+                        <i class="fa-solid fa-receipt"></i> Slip
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function viewMovementDetails(id) {
+    const all = getAllMovements();
+    const item = all.find(m => m.id === id);
+    if (!item) {
+        showToast(`Movement ${id} recorded in stock ledger.`, 'info');
+        return;
+    }
+    showToast(`Ledger Slip ${item.id}: ${item.type} of ${item.quantityDisplay} (${item.productName})`, 'info', 4000);
+}
+
+function setupMovementHistoryInteractions() {
+    const searchInput = document.getElementById('history-search-input');
+    const clearSearchBtn = document.getElementById('history-search-clear');
+    const typeFilter = document.getElementById('history-type-filter');
+    const productFilter = document.getElementById('history-product-filter');
+    const warehouseFilter = document.getElementById('history-warehouse-filter');
+    const statusFilter = document.getElementById('history-status-filter');
+    const dateFilter = document.getElementById('history-date-filter');
+    const btnExport = document.getElementById('btn-export-movements');
+    const btnClearFilters = document.getElementById('btn-clear-movement-filters');
+    const thSortDate = document.getElementById('th-sort-date');
+    const thSortQty = document.getElementById('th-sort-quantity');
+
+    if (searchInput) searchInput.addEventListener('input', applyMovementFilters);
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            applyMovementFilters();
+            searchInput.focus();
+        });
+    }
+
+    [typeFilter, productFilter, warehouseFilter, statusFilter, dateFilter].forEach(el => {
+        if (el) el.addEventListener('change', applyMovementFilters);
+    });
+
+    if (thSortDate) {
+        thSortDate.addEventListener('click', () => {
+            if (movementSortState.column === 'date') {
+                movementSortState.direction = movementSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                movementSortState.column = 'date';
+                movementSortState.direction = 'desc';
+            }
+
+            // Update UI icon
+            const icon = document.getElementById('icon-sort-date');
+            if (icon) {
+                icon.className = movementSortState.direction === 'asc' ? 'fa-solid fa-sort-up sort-icon' : 'fa-solid fa-sort-down sort-icon';
+            }
+            if (thSortQty) thSortQty.classList.remove('active-sort');
+            thSortDate.classList.add('active-sort');
+
+            applyMovementFilters();
+        });
+    }
+
+    if (thSortQty) {
+        thSortQty.addEventListener('click', () => {
+            if (movementSortState.column === 'quantity') {
+                movementSortState.direction = movementSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                movementSortState.column = 'quantity';
+                movementSortState.direction = 'desc';
+            }
+
+            const icon = document.getElementById('icon-sort-quantity');
+            if (icon) {
+                icon.className = movementSortState.direction === 'asc' ? 'fa-solid fa-sort-up sort-icon' : 'fa-solid fa-sort-down sort-icon';
+            }
+            if (thSortDate) thSortDate.classList.remove('active-sort');
+            thSortQty.classList.add('active-sort');
+
+            applyMovementFilters();
+        });
+    }
+
+    if (btnExport) {
+        btnExport.addEventListener('click', () => {
+            showToast('Export feature coming soon', 'info', 3000);
+        });
+    }
+
+    if (btnClearFilters) {
+        btnClearFilters.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (typeFilter) typeFilter.value = 'ALL';
+            if (productFilter) productFilter.value = 'ALL';
+            if (warehouseFilter) warehouseFilter.value = 'ALL';
+            if (statusFilter) statusFilter.value = 'ALL';
+            if (dateFilter) dateFilter.value = '';
+            applyMovementFilters();
+            showToast('Filters cleared.', 'info', 2000);
+        });
+    }
+}
+
+/* ==========================================================================
+   Warehouses Management Module
+   ========================================================================== */
+// In production: Replace with fetch('/api/warehouses') or Firestore collection query
+function renderWarehouses() {
+    let mainUnits = 0;
+    let prodUnits = 0;
+    let mainSkus = 0;
+    let prodSkus = 0;
+
+    productsData.forEach(p => {
+        const m = p.mainWarehouseStock || 0;
+        const pr = p.productionFloorStock || 0;
+        mainUnits += m;
+        prodUnits += pr;
+        if (m > 0) mainSkus++;
+        if (pr > 0) prodSkus++;
+    });
+
+    const totalStored = mainUnits + prodUnits;
+    const mainCapacity = 10000;
+    const prodCapacity = 3000;
+
+    const mainPercent = Math.min(100, Math.round((mainUnits / mainCapacity) * 100));
+    const prodPercent = Math.min(100, Math.round((prodUnits / prodCapacity) * 100));
+
+    // Update Overview Cards
+    const elWhStored = document.getElementById('wh-total-stored');
+    const elWhMainLoad = document.getElementById('wh-main-load-stat');
+    const elWhProdLoad = document.getElementById('wh-prod-load-stat');
+
+    if (elWhStored) elWhStored.textContent = `${totalStored.toLocaleString()} units`;
+    if (elWhMainLoad) elWhMainLoad.textContent = `${mainPercent}%`;
+    if (elWhProdLoad) elWhProdLoad.textContent = `${prodPercent}%`;
+
+    // Update Main Warehouse Card
+    const elCardMainUnits = document.getElementById('wh-card-main-units');
+    const elCardMainSkus = document.getElementById('wh-card-main-skus');
+    const elCardMainPercent = document.getElementById('wh-card-main-percent');
+    const elCardMainBar = document.getElementById('wh-card-main-bar');
+    const elCardMainUsed = document.getElementById('wh-card-main-used-desc');
+    const elCardMainAvail = document.getElementById('wh-card-main-avail-desc');
+
+    if (elCardMainUnits) elCardMainUnits.textContent = `${mainUnits.toLocaleString()} units`;
+    if (elCardMainSkus) elCardMainSkus.textContent = `${mainSkus} items`;
+    if (elCardMainPercent) elCardMainPercent.textContent = `${mainPercent}%`;
+    if (elCardMainBar) elCardMainBar.style.width = `${mainPercent}%`;
+    if (elCardMainUsed) elCardMainUsed.textContent = `${mainUnits.toLocaleString()} units stored`;
+    if (elCardMainAvail) elCardMainAvail.textContent = `${Math.max(0, mainCapacity - mainUnits).toLocaleString()} available`;
+
+    // Update Production Floor Card
+    const elCardProdUnits = document.getElementById('wh-card-prod-units');
+    const elCardProdSkus = document.getElementById('wh-card-prod-skus');
+    const elCardProdPercent = document.getElementById('wh-card-prod-percent');
+    const elCardProdBar = document.getElementById('wh-card-prod-bar');
+    const elCardProdUsed = document.getElementById('wh-card-prod-used-desc');
+    const elCardProdAvail = document.getElementById('wh-card-prod-avail-desc');
+
+    if (elCardProdUnits) elCardProdUnits.textContent = `${prodUnits.toLocaleString()} units`;
+    if (elCardProdSkus) elCardProdSkus.textContent = `${prodSkus} items`;
+    if (elCardProdPercent) elCardProdPercent.textContent = `${prodPercent}%`;
+    if (elCardProdBar) elCardProdBar.style.width = `${prodPercent}%`;
+    if (elCardProdUsed) elCardProdUsed.textContent = `${prodUnits.toLocaleString()} units stored`;
+    if (elCardProdAvail) elCardProdAvail.textContent = `${Math.max(0, prodCapacity - prodUnits).toLocaleString()} available`;
+
+    // Render Distribution Table
+    const tbody = document.getElementById('wh-distribution-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = productsData.map(p => {
+        const m = p.mainWarehouseStock || 0;
+        const pr = p.productionFloorStock || 0;
+        const total = m + pr;
+        const mPct = total > 0 ? Math.round((m / total) * 100) : 0;
+        const prPct = total > 0 ? (100 - mPct) : 0;
+        const status = computeProductStatus(total, p.reorderLevel);
+        const statusBadgeClass = getProductStatusBadgeClass(status);
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(p.name)}</strong></td>
+                <td><span class="sku-code">${escapeHtml(p.sku)}</span></td>
+                <td>${escapeHtml(p.category)}</td>
+                <td class="text-right"><strong>${m}</strong> ${escapeHtml(p.unit)}</td>
+                <td class="text-right"><strong>${pr}</strong> ${escapeHtml(p.unit)}</td>
+                <td class="text-right font-weight-bold">${total} ${escapeHtml(p.unit)}</td>
+                <td>
+                    <div class="dist-ratio-wrapper">
+                        <div class="dist-bar-track">
+                            <div class="dist-bar-main" style="width: ${mPct}%;" title="Main Warehouse: ${mPct}%"></div>
+                            <div class="dist-bar-prod" style="width: ${prPct}%;" title="Production Floor: ${prPct}%"></div>
+                        </div>
+                        <div class="dist-labels">
+                            <span>Main: ${mPct}%</span>
+                            <span>Prod: ${prPct}%</span>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-center"><span class="badge ${statusBadgeClass}">${status}</span></td>
+                <td class="text-center">
+                    <button type="button" class="btn-action" onclick="quickTransferProduct(${p.id})" title="Transfer this product">
+                        <i class="fa-solid fa-right-left"></i> Transfer
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function quickTransferProduct(productId) {
+    navigateTo('Transfers');
+    const select = document.getElementById('transfer-product');
+    if (select) {
+        select.value = productId;
+        updateTransferSummary();
+    }
+}
+
+function setupWarehousesInteractions() {
+    const btnReceive = document.getElementById('btn-wh-goto-receive');
+    if (btnReceive) btnReceive.addEventListener('click', () => navigateTo('Receive Stock'));
+
+    const btnTransfer = document.getElementById('btn-wh-goto-transfer');
+    if (btnTransfer) btnTransfer.addEventListener('click', () => navigateTo('Transfers'));
+
+    const btnAdjust = document.getElementById('btn-wh-goto-adjust');
+    if (btnAdjust) btnAdjust.addEventListener('click', () => navigateTo('Stock Adjustments'));
+
+    const btnTransferIn = document.getElementById('btn-wh-goto-transfer-in');
+    if (btnTransferIn) btnTransferIn.addEventListener('click', () => navigateTo('Transfers'));
+
+    const btnAdjustProd = document.getElementById('btn-wh-goto-adjust-prod');
+    if (btnAdjustProd) btnAdjustProd.addEventListener('click', () => navigateTo('Stock Adjustments'));
+
+    const btnExport = document.getElementById('btn-export-wh-stock');
+    if (btnExport) {
+        btnExport.addEventListener('click', () => {
+            showToast('Warehouse stock summary exported to CSV', 'success');
+        });
+    }
+}
+
+/* ==========================================================================
+   Settings & Preferences Module
+   ========================================================================== */
+function renderSettings() {
+    // Keep settings forms synchronized with runtime preferences
+}
+
+function setupSettingsInteractions() {
+    const formBusiness = document.getElementById('form-settings-business');
+    if (formBusiness) {
+        formBusiness.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // In production: Replace with fetch('/api/settings/business', { method: 'POST', body: ... })
+            showToast('Business & facility profile updated successfully!', 'success');
+        });
+    }
+
+    const formAlerts = document.getElementById('form-settings-alerts');
+    if (formAlerts) {
+        formAlerts.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // In production: Replace with fetch('/api/settings/alerts', { method: 'POST', body: ... })
+            showToast('Safety stock and reorder alert rules saved!', 'success');
+        });
+    }
+
+    const formNotifs = document.getElementById('form-settings-notifications');
+    if (formNotifs) {
+        formNotifs.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // In production: Replace with fetch('/api/settings/notifications', { method: 'POST', body: ... })
+            showToast('Notification alert preferences updated!', 'success');
+        });
+    }
+
+    const formProfile = document.getElementById('form-settings-profile');
+    if (formProfile) {
+        formProfile.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // In production: Replace with fetch('/api/user/profile', { method: 'PUT', body: ... })
+            const nameInput = document.getElementById('profile-full-name');
+            if (nameInput && nameInput.value.trim()) {
+                const name = nameInput.value.trim();
+                document.querySelectorAll('.profile-name, .header-user-name, .user-name').forEach(el => el.textContent = name);
+            }
+            showToast('Operator profile credentials updated!', 'success');
+        });
+    }
+
+    const btnAvatar = document.getElementById('btn-change-avatar');
+    if (btnAvatar) {
+        btnAvatar.addEventListener('click', () => {
+            showToast('Profile image upload is ready for backend cloud storage.', 'info');
+        });
+    }
+}
+
+/* ==========================================================================
+   Theme & Dark Mode Module
+   ========================================================================== */
+function setupTheme() {
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    const themeIcon = document.getElementById('theme-toggle-icon');
+    const radioLight = document.getElementById('theme-radio-light');
+    const radioDark = document.getElementById('theme-radio-dark');
+
+    const applyTheme = (theme) => {
+        if (theme === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            if (themeIcon) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            }
+            if (radioDark) radioDark.checked = true;
+        } else {
+            document.body.classList.remove('dark-theme');
+            document.documentElement.setAttribute('data-theme', 'light');
+            if (themeIcon) {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+            if (radioLight) radioLight.checked = true;
+        }
+        localStorage.setItem('stocksense_theme', theme);
+    };
+
+    const savedTheme = localStorage.getItem('stocksense_theme') || 'light';
+    applyTheme(savedTheme);
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const current = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            showToast(`Switched to ${next === 'dark' ? 'Dark' : 'Light'} theme`, 'info', 2000);
+        });
+    }
+
+    const formTheme = document.getElementById('form-settings-theme');
+    if (formTheme) {
+        formTheme.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const selected = document.querySelector('input[name="ui_theme"]:checked');
+            if (selected) {
+                applyTheme(selected.value);
+            }
+            const compact = document.getElementById('pref-compact-tables');
+            if (compact && compact.checked) {
+                document.querySelectorAll('.data-table').forEach(tbl => tbl.classList.add('compact-table'));
+            } else {
+                document.querySelectorAll('.data-table').forEach(tbl => tbl.classList.remove('compact-table'));
+            }
+            showToast('Theme and interface preferences applied successfully!', 'success');
+        });
+    }
+}
+
+/* ==========================================================================
+   Toast Notification System (showToast alias)
+   ========================================================================== */
+function showToast(message, type = 'info', duration = 3500) {
+    showNotification(message, type, duration);
+}
+
