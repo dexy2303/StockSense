@@ -1489,6 +1489,19 @@ img {
     margin-bottom: 0.5rem;
 }
 
+/* Loading State row */
+.loading-table-row {
+    text-align: center;
+    padding: 3rem 1.5rem !important;
+    color: var(--text-muted);
+}
+
+.loading-table-row .empty-icon i {
+    font-size: 2.2rem;
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+}
+
 /* --------------------------------------------------------------------------
    Warehouse Placeholder Card Styles
    -------------------------------------------------------------------------- */

@@ -110,11 +110,10 @@ const suppliersData = [
     "SafetyFirst Equipment"
 ];
 
-// Sample Warehouses Dataset
-// In production: Replace with fetch('/api/warehouses') later
-const warehousesData = [
-    "Main Warehouse",
-    "Production Floor"
+// Warehouses Dataset (loaded from GET /api/warehouses)
+let warehousesData = [
+    { id: 'wh-main', name: 'Main Warehouse', code: 'WH-MAIN-01', capacity: 10000, storedUnits: 808, stockedSkus: 6, loadPercentage: 8.1, availableCapacity: 9192 },
+    { id: 'wh-prod', name: 'Production Floor', code: 'WH-PROD-02', capacity: 3000, storedUnits: 174, stockedSkus: 6, loadPercentage: 5.8, availableCapacity: 2826 }
 ];
 
 // Sample Inbound Receipts Dataset
@@ -584,6 +583,421 @@ let stockMovements = [
 let productPendingDeleteId = null;
 
 /* ==========================================================================
+   Reusable API Helper Functions (Flask + Firestore REST API)
+   ========================================================================== */
+
+/**
+ * Executes a GET request against Flask API endpoints
+ */
+async function apiGet(url) {
+    try {
+        const response = await fetch(url);
+        const result = await response.json();
+        if (!response.ok || (result && result.success === false)) {
+            const errorMsg = (result && result.message) || `Request failed with status ${response.status}`;
+            throw new Error(errorMsg);
+        }
+        return result;
+    } catch (err) {
+        console.error(`apiGet error (${url}):`, err);
+        throw err;
+    }
+}
+
+/**
+ * Executes a POST request against Flask API endpoints
+ */
+async function apiPost(url, data) {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok || (result && result.success === false)) {
+            const errorMsg = (result && result.message) || `Request failed with status ${response.status}`;
+            throw new Error(errorMsg);
+        }
+        return result;
+    } catch (err) {
+        console.error(`apiPost error (${url}):`, err);
+        throw err;
+    }
+}
+
+/**
+ * Executes a PUT request against Flask API endpoints
+ */
+async function apiPut(url, data) {
+    try {
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok || (result && result.success === false)) {
+            const errorMsg = (result && result.message) || `Request failed with status ${response.status}`;
+            throw new Error(errorMsg);
+        }
+        return result;
+    } catch (err) {
+        console.error(`apiPut error (${url}):`, err);
+        throw err;
+    }
+}
+
+/**
+ * Executes a DELETE request against Flask API endpoints
+ */
+async function apiDelete(url) {
+    try {
+        const response = await fetch(url, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!response.ok || (result && result.success === false)) {
+            const errorMsg = (result && result.message) || `Request failed with status ${response.status}`;
+            throw new Error(errorMsg);
+        }
+        return result;
+    } catch (err) {
+        console.error(`apiDelete error (${url}):`, err);
+        throw err;
+    }
+}
+
+/**
+ * Renders a clean loading spinner indicator in any data table tbody
+ */
+function renderTableLoading(tbodyId, colSpan = 8, message = 'Loading live data from server...') {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="${colSpan}" class="loading-table-row">
+                <div class="empty-icon"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                <p>${escapeHtml(message)}</p>
+            </td>
+        </tr>
+    `;
+}
+
+/**
+ * Synchronizes warehouse select dropdowns across the application
+ */
+function populateWarehouseDropdowns() {
+    const warehouseSelects = [
+        document.getElementById('receive-warehouse'),
+        document.getElementById('delivery-warehouse'),
+        document.getElementById('adjustment-warehouse'),
+        document.getElementById('add-product-warehouse'),
+        document.getElementById('products-warehouse-filter'),
+        document.getElementById('history-warehouse-filter')
+    ];
+
+    warehouseSelects.forEach(sel => {
+        if (!sel) return;
+        const cur = sel.value;
+        const isFilter = sel.id.includes('filter');
+        sel.innerHTML = isFilter ? '<option value="ALL">All Warehouses</option>' : '<option value="">Select Warehouse</option>';
+        warehousesData.forEach(w => {
+            const name = typeof w === 'object' && w.name ? w.name : w;
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            if (name === cur) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        if (cur && sel.querySelector(`option[value="${cur}"]`)) {
+            sel.value = cur;
+        } else if (!isFilter && warehousesData.length > 0) {
+            const first = typeof warehousesData[0] === 'object' ? warehousesData[0].name : warehousesData[0];
+            sel.value = first;
+        }
+    });
+
+    populateTransferDropdowns();
+}
+
+/**
+ * Renders live warehouse facility capacity bars on the dashboard
+ */
+function renderDashboardWarehouses(warehouses) {
+    const container = document.getElementById('dashboard-warehouse-list');
+    if (!container || !warehouses || warehouses.length === 0) return;
+    const colors = ['var(--primary)', '#0ea5e9', '#6366f1', '#10b981'];
+    const icons = ['hub-central fa-building-circle-check', 'hub-west fa-building-circle-arrow-right', 'hub-east fa-building-flag', 'hub-central fa-warehouse'];
+
+    container.innerHTML = warehouses.map((wh, idx) => {
+        const color = colors[idx % colors.length];
+        const iconClass = icons[idx % icons.length];
+        const stored = (wh.storedUnits || 0).toLocaleString();
+        const cap = (wh.capacity || 0).toLocaleString();
+        const pct = wh.loadPercentage || 0;
+        const avail = (wh.availableCapacity || 0).toLocaleString();
+        return `
+            <div class="warehouse-item">
+                <div class="warehouse-info-row">
+                    <div class="warehouse-name-col">
+                        <i class="fa-solid ${iconClass} warehouse-icon"></i>
+                        <div>
+                            <span class="warehouse-name">${escapeHtml(wh.name)}</span>
+                            <span class="warehouse-type">${escapeHtml(wh.location || 'Fulfillment Hub')}</span>
+                        </div>
+                    </div>
+                    <div class="warehouse-stats">
+                        <span class="qty-highlight">${stored}</span> / ${cap} units
+                    </div>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" style="width: ${Math.min(100, pct)}%; background-color: ${color};"></div>
+                </div>
+                <div class="progress-labels">
+                    <span>${pct}% Occupied</span>
+                    <span>${avail} Available</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/* ==========================================================================
+   Modular Data Loaders (Connecting Frontend with Flask + Firestore APIs)
+   ========================================================================== */
+
+/**
+ * Loads products from GET /api/products and updates tables, metrics, and dropdowns
+ */
+async function loadProducts(showLoading = false) {
+    if (showLoading) {
+        renderTableLoading('products-tbody', 10, 'Loading products catalog...');
+    }
+    try {
+        const res = await apiGet('/api/products');
+        if (res && res.success && Array.isArray(res.data)) {
+            productsData = res.data;
+            renderProductsTable(getFilteredProducts());
+            updateProductsMetrics();
+            populateReceiveProductDropdown();
+            populateDeliveryProductDropdown();
+            populateTransferDropdowns();
+            populateAdjustmentDropdowns();
+            populateHistoryProductDropdown();
+            updateDashboardStats();
+        }
+    } catch (err) {
+        console.warn('loadProducts warning:', err);
+        renderProductsTable(getFilteredProducts());
+        updateProductsMetrics();
+    }
+}
+
+/**
+ * Loads warehouse facilities from GET /api/warehouses and updates facilities view
+ */
+async function loadWarehouses() {
+    try {
+        const res = await apiGet('/api/warehouses');
+        if (res && res.success && Array.isArray(res.data)) {
+            warehousesData = res.data;
+            populateWarehouseDropdowns();
+            renderWarehouses();
+            renderDashboardWarehouses(res.data);
+        }
+    } catch (err) {
+        console.warn('loadWarehouses warning:', err);
+        renderWarehouses();
+    }
+}
+
+/**
+ * Loads stock receipts from GET /api/receipts
+ */
+async function loadReceipts(showLoading = false) {
+    if (showLoading) {
+        renderTableLoading('receipts-tbody', 7, 'Loading stock receipts...');
+    }
+    try {
+        const res = await apiGet('/api/receipts');
+        if (res && res.success && Array.isArray(res.data)) {
+            receiptsData = res.data;
+            renderReceiptsTable(getFilteredReceipts());
+            updateReceiptsMetrics();
+            updateReceiveSummary();
+        }
+    } catch (err) {
+        console.warn('loadReceipts warning:', err);
+        renderReceiptsTable(getFilteredReceipts());
+    }
+}
+
+/**
+ * Loads deliveries from GET /api/deliveries
+ */
+async function loadDeliveries(showLoading = false) {
+    if (showLoading) {
+        renderTableLoading('deliveries-tbody', 7, 'Loading delivery orders...');
+    }
+    try {
+        const res = await apiGet('/api/deliveries');
+        if (res && res.success && Array.isArray(res.data)) {
+            deliveriesData = res.data;
+            renderDeliveriesTable(getFilteredDeliveries());
+            updateDeliveriesMetrics();
+            updateDeliverySummary();
+        }
+    } catch (err) {
+        console.warn('loadDeliveries warning:', err);
+        renderDeliveriesTable(getFilteredDeliveries());
+    }
+}
+
+/**
+ * Loads transfers from GET /api/transfers
+ */
+async function loadTransfers(showLoading = false) {
+    if (showLoading) {
+        renderTableLoading('transfers-tbody', 7, 'Loading transfers...');
+    }
+    try {
+        const res = await apiGet('/api/transfers');
+        if (res && res.success && Array.isArray(res.data)) {
+            transfersData = res.data;
+            renderTransfersTable(getFilteredTransfers());
+            updateTransfersMetrics();
+            updateTransferSummary();
+        }
+    } catch (err) {
+        console.warn('loadTransfers warning:', err);
+        renderTransfersTable(getFilteredTransfers());
+    }
+}
+
+/**
+ * Loads stock adjustments from GET /api/adjustments
+ */
+async function loadAdjustments(showLoading = false) {
+    if (showLoading) {
+        renderTableLoading('adjustments-tbody', 8, 'Loading inventory adjustments...');
+    }
+    try {
+        const res = await apiGet('/api/adjustments');
+        if (res && res.success && Array.isArray(res.data)) {
+            adjustmentsData = res.data;
+            renderAdjustmentsTable(getFilteredAdjustments());
+            updateAdjustmentsMetrics();
+            updateAdjustmentSummary();
+        }
+    } catch (err) {
+        console.warn('loadAdjustments warning:', err);
+        renderAdjustmentsTable(getFilteredAdjustments());
+    }
+}
+
+/**
+ * Loads central movement ledger from GET /api/movements
+ */
+async function loadMovements(params = '') {
+    const tbody = document.getElementById('history-tbody');
+    if (tbody && !tbody.children.length) {
+        renderTableLoading('history-tbody', 13, 'Loading movement ledger...');
+    }
+    try {
+        const queryStr = params ? `?${params}` : '';
+        const res = await apiGet(`/api/movements${queryStr}`);
+        if (res && res.success && Array.isArray(res.data)) {
+            stockMovements = res.data;
+            applyMovementFilters();
+        }
+    } catch (err) {
+        console.warn('loadMovements warning:', err);
+        applyMovementFilters();
+    }
+}
+
+/**
+ * Loads recent movements for the dashboard feed from GET /api/movements/recent
+ */
+async function loadRecentMovements() {
+    try {
+        const res = await apiGet('/api/movements/recent?limit=10');
+        if (res && res.success && Array.isArray(res.data)) {
+            renderMovementsTable(res.data);
+        }
+    } catch (err) {
+        console.warn('loadRecentMovements warning:', err);
+        renderMovementsTable(stockMovements);
+    }
+}
+
+/**
+ * Loads low-stock alerting items from GET /api/low-stock
+ */
+async function loadLowStockAlerts() {
+    try {
+        const res = await apiGet('/api/low-stock');
+        if (res && res.success && Array.isArray(res.data)) {
+            lowStockProducts = res.data;
+            renderLowStockTable(res.data);
+        }
+    } catch (err) {
+        console.warn('loadLowStockAlerts warning:', err);
+        renderLowStockTableFromProducts();
+    }
+}
+
+/**
+ * Loads dashboard KPIs and feeds from backend
+ */
+async function loadDashboardData() {
+    try {
+        const statsRes = await apiGet('/api/dashboard/stats');
+        if (statsRes && statsRes.success && statsRes.data) {
+            const stats = statsRes.data;
+            const elDashProducts = document.getElementById('dashboard-total-products');
+            const elDashStockUnits = document.getElementById('dashboard-total-stock-units');
+            const elDashLowStock = document.getElementById('dashboard-low-stock-count');
+            const elDashMovements = document.getElementById('dashboard-movements-count');
+            const elLowStockBadge = document.getElementById('low-stock-count-badge');
+
+            if (elDashProducts) elDashProducts.textContent = (stats.totalProducts || 0).toLocaleString();
+            if (elDashStockUnits) elDashStockUnits.textContent = (stats.totalStockUnits || 0).toLocaleString();
+            if (elDashLowStock) elDashLowStock.textContent = stats.lowStockAlerts || 0;
+            if (elDashMovements) elDashMovements.textContent = stats.totalMovements || 0;
+            if (elLowStockBadge) elLowStockBadge.textContent = `${stats.lowStockAlerts || 0} Items Alerting`;
+        }
+    } catch (err) {
+        console.warn('loadDashboardData stats fallback:', err);
+        updateDashboardStats();
+    }
+
+    await Promise.allSettled([
+        loadLowStockAlerts(),
+        loadRecentMovements(),
+        loadWarehouses()
+    ]);
+}
+
+/**
+ * Refreshes all application state from the backend
+ */
+async function refreshAllData() {
+    await Promise.allSettled([
+        loadProducts(),
+        loadWarehouses(),
+        loadReceipts(),
+        loadDeliveries(),
+        loadTransfers(),
+        loadAdjustments(),
+        loadMovements(),
+        loadLowStockAlerts(),
+        loadDashboardData()
+    ]);
+}
+
+/* ==========================================================================
    Application Initialization
    ========================================================================== */
 function initApp() {
@@ -641,6 +1055,9 @@ function initApp() {
     };
     const startView = hashToView[initialHash] || 'Dashboard';
     navigateTo(startView);
+
+    // Sync live state from Flask + Firestore backend asynchronously
+    refreshAllData();
 }
 
 /* ==========================================================================
@@ -1179,7 +1596,7 @@ function updateDeliveriesMetrics() {
 /**
  * Handles Delivery Order Form Submission
  */
-function handleDeliveryOrderSubmit(e) {
+async function handleDeliveryOrderSubmit(e) {
     e.preventDefault();
 
     const customerInput = document.getElementById('delivery-customer');
@@ -1211,8 +1628,8 @@ function handleDeliveryOrderSubmit(e) {
         hasErrors = true;
     }
 
-    const productId = Number(productSelect.value);
-    const product = productsData.find(p => p.id === productId);
+    const productId = productSelect ? productSelect.value : '';
+    const product = productsData.find(p => String(p.id) === String(productId));
     if (!productId || !product) {
         setFieldError('err-delivery-product', productSelect, 'Please select a product');
         hasErrors = true;
@@ -1262,66 +1679,41 @@ function handleDeliveryOrderSubmit(e) {
         return;
     }
 
-    // Construct new Delivery object
-    const newDelivery = {
-        id: `DEL-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        customer: customer,
-        orderRef: orderRef,
-        productId: product.id,
-        productName: product.name,
-        productSku: product.sku,
-        warehouse: warehouse,
-        quantity: quantity,
-        unit: product.unit,
-        date: deliveryDate,
-        notes: notesInput ? notesInput.value.trim() : '',
-        status: status
-    };
-
-    // Deduct stock from selected warehouse if Completed
-    // In production: Replace with fetch('/api/deliveries', { method: 'POST', body: JSON.stringify(newDelivery) }) later
-    if (status === 'Completed') {
-        if (warehouse === 'Main Warehouse') {
-            product.mainWarehouseStock -= quantity;
-        } else if (warehouse === 'Production Floor') {
-            product.productionFloorStock -= quantity;
-        }
-
-        // Add to recent stock movements log
-        // In production: Replace with fetch('/api/movements', { method: 'POST', body: ... }) later
-        stockMovements.unshift({
-            id: newDelivery.id,
-            timestamp: 'Just now',
-            productName: product.name,
-            type: 'Delivery',
-            quantity: `-${quantity}`,
-            route: `${warehouse} → ${customer}`,
-            user: 'Alex Morgan'
+    try {
+        const res = await apiPost('/api/deliveries', {
+            customer: customer,
+            orderRef: orderRef,
+            productId: product.id,
+            warehouse: warehouse,
+            quantity: quantity,
+            date: deliveryDate,
+            notes: notesInput ? notesInput.value.trim() : '',
+            status: status
         });
 
-        // Update dashboard metrics
-        updateDashboardMetrics(-quantity);
+        const delId = (res && res.data && res.data.id) || 'Recorded';
+        showNotification(`Delivery recorded successfully: ${delId}`, 'success', 3500);
+
+        if (qtyInput) qtyInput.value = '';
+        if (orderRefInput) orderRefInput.value = '';
+        if (notesInput) notesInput.value = '';
+
+        await Promise.allSettled([
+            loadDeliveries(),
+            loadProducts(),
+            loadDashboardData(),
+            loadMovements(),
+            loadLowStockAlerts()
+        ]);
+    } catch (err) {
+        if (errorBox) {
+            errorBox.textContent = err.message || 'Failed to dispatch order on server';
+            errorBox.style.display = 'block';
+        }
+        const warningBanner = document.getElementById('delivery-stock-warning');
+        if (warningBanner) warningBanner.style.display = 'flex';
+        showNotification(err.message || 'Delivery error', 'danger', 4500);
     }
-
-    // Add delivery to data array
-    deliveriesData.unshift(newDelivery);
-
-    // Refresh UI across all views
-    renderDeliveriesTable(getFilteredDeliveries());
-    renderProductsTable(getFilteredProducts());
-    renderMovementsTable(stockMovements);
-    updateProductsMetrics();
-    updateDeliveriesMetrics();
-    updateDeliverySummary();
-    updateReceiveSummary();
-
-    // Clear item inputs for next delivery
-    if (qtyInput) qtyInput.value = '';
-    if (orderRefInput) orderRefInput.value = '';
-    if (notesInput) notesInput.value = '';
-
-    // Show temporary success toast
-    showNotification('Delivery recorded successfully', 'success', 3500);
 }
 
 function clearDeliveryErrors() {
@@ -1371,22 +1763,26 @@ function populateTransferDropdowns() {
         const curSource = sourceSelect.value || 'Main Warehouse';
         sourceSelect.innerHTML = '';
         warehousesData.forEach(w => {
+            const name = typeof w === 'object' && w.name ? w.name : w;
             const opt = document.createElement('option');
-            opt.value = w;
-            opt.textContent = w;
-            if (w === curSource) opt.selected = true;
+            opt.value = name;
+            opt.textContent = name;
+            if (name === curSource) opt.selected = true;
             sourceSelect.appendChild(opt);
         });
     }
 
     if (destSelect) {
-        const curDest = destSelect.value || (warehousesData.length > 1 ? warehousesData[1] : warehousesData[0]);
+        const firstWh = warehousesData.length > 0 ? (typeof warehousesData[0] === 'object' ? warehousesData[0].name : warehousesData[0]) : 'Main Warehouse';
+        const secondWh = warehousesData.length > 1 ? (typeof warehousesData[1] === 'object' ? warehousesData[1].name : warehousesData[1]) : firstWh;
+        const curDest = destSelect.value || secondWh;
         destSelect.innerHTML = '';
         warehousesData.forEach(w => {
+            const name = typeof w === 'object' && w.name ? w.name : w;
             const opt = document.createElement('option');
-            opt.value = w;
-            opt.textContent = w;
-            if (w === curDest) opt.selected = true;
+            opt.value = name;
+            opt.textContent = name;
+            if (name === curDest) opt.selected = true;
             destSelect.appendChild(opt);
         });
     }
@@ -1435,12 +1831,12 @@ function updateTransferSummary() {
     const stockWarnBanner = document.getElementById('transfer-stock-warning');
     const stockWarnText = document.getElementById('transfer-stock-warning-text');
 
-    const productId = productSelect ? Number(productSelect.value) : null;
+    const productId = productSelect ? productSelect.value : null;
     const source = sourceSelect ? sourceSelect.value : 'Main Warehouse';
     const dest = destSelect ? destSelect.value : 'Production Floor';
     const quantity = qtyInput ? Math.max(0, Number(qtyInput.value) || 0) : 0;
 
-    const product = productsData.find(p => p.id === productId);
+    const product = productsData.find(p => String(p.id) === String(productId));
 
     if (elSourceName) elSourceName.textContent = source || 'Not Selected';
     if (elDestName) elDestName.textContent = dest || 'Not Selected';
@@ -1541,7 +1937,7 @@ function updateTransfersMetrics() {
 /**
  * Handles Inter-Warehouse Transfer Form Submission
  */
-function handleTransferSubmit(e) {
+async function handleTransferSubmit(e) {
     e.preventDefault();
 
     const productSelect = document.getElementById('transfer-product');
@@ -1552,6 +1948,7 @@ function handleTransferSubmit(e) {
     const refInput = document.getElementById('transfer-ref');
     const notesInput = document.getElementById('transfer-notes');
     const errorBox = document.getElementById('transfer-form-error');
+    const submitBtn = document.getElementById('btn-submit-transfer');
 
     const statusRadio = document.querySelector('input[name="transfer-status"]:checked');
     const status = statusRadio ? statusRadio.value : 'Completed';
@@ -1561,20 +1958,20 @@ function handleTransferSubmit(e) {
 
     let hasErrors = false;
 
-    const productId = Number(productSelect.value);
-    const product = productsData.find(p => p.id === productId);
+    const productId = productSelect ? productSelect.value : '';
+    const product = productsData.find(p => String(p.id) === String(productId));
     if (!productId || !product) {
         setFieldError('err-transfer-product', productSelect, 'Please select a product');
         hasErrors = true;
     }
 
-    const sourceWarehouse = sourceSelect.value;
+    const sourceWarehouse = sourceSelect ? sourceSelect.value : '';
     if (!sourceWarehouse) {
         setFieldError('err-transfer-source', sourceSelect, 'Please select a source warehouse');
         hasErrors = true;
     }
 
-    const destWarehouse = destSelect.value;
+    const destWarehouse = destSelect ? destSelect.value : '';
     if (!destWarehouse) {
         setFieldError('err-transfer-dest', destSelect, 'Please select a destination warehouse');
         hasErrors = true;
@@ -1589,19 +1986,19 @@ function handleTransferSubmit(e) {
         hasErrors = true;
     }
 
-    const quantity = Number(qtyInput.value);
-    if (!qtyInput.value.trim() || isNaN(quantity) || quantity <= 0) {
+    const quantity = Number(qtyInput ? qtyInput.value : 0);
+    if (!qtyInput || !qtyInput.value.trim() || isNaN(quantity) || quantity <= 0) {
         setFieldError('err-transfer-quantity', qtyInput, 'Quantity must be greater than 0');
         hasErrors = true;
     }
 
-    const transferDate = dateInput.value;
+    const transferDate = dateInput ? dateInput.value : '';
     if (!transferDate) {
         setFieldError('err-transfer-date', dateInput, 'Please select a transfer date');
         hasErrors = true;
     }
 
-    const reference = refInput.value.trim().toUpperCase();
+    const reference = refInput ? refInput.value.trim().toUpperCase() : '';
     if (!reference) {
         setFieldError('err-transfer-ref', refInput, 'Transfer reference is required');
         hasErrors = true;
@@ -1610,8 +2007,8 @@ function handleTransferSubmit(e) {
     // Constraint: Prevent transfer if quantity exceeds available stock at source
     if (product && sourceWarehouse && quantity > 0 && sourceWarehouse !== destWarehouse) {
         const availableStock = sourceWarehouse === 'Main Warehouse'
-            ? product.mainWarehouseStock
-            : product.productionFloorStock;
+            ? Number(product.mainWarehouseStock || 0)
+            : Number(product.productionFloorStock || 0);
 
         if (quantity > availableStock) {
             const errorMsg = `Insufficient stock! Source warehouse (${sourceWarehouse}) only has ${availableStock} ${product.unit} available.`;
@@ -1622,7 +2019,7 @@ function handleTransferSubmit(e) {
                 errorBox.textContent = errorMsg;
                 errorBox.style.display = 'block';
             }
-            qtyInput.focus();
+            if (qtyInput) qtyInput.focus();
             return;
         }
     }
@@ -1635,73 +2032,68 @@ function handleTransferSubmit(e) {
         return;
     }
 
-    // Create new Transfer record
-    const newTransfer = {
-        id: `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Executing...';
+    }
+
+    const payload = {
         reference: reference,
-        productId: product.id,
-        productName: product.name,
-        productSku: product.sku,
+        productId: String(product.id),
         sourceWarehouse: sourceWarehouse,
         destWarehouse: destWarehouse,
         quantity: quantity,
-        unit: product.unit,
         date: transferDate,
         notes: notesInput ? notesInput.value.trim() : '',
         status: status
     };
 
-    // Subtract from source and add to destination; keep total stock unchanged
-    // In production: Replace with fetch('/api/transfers', { method: 'POST', body: JSON.stringify(newTransfer) }) later
-    if (status === 'Completed') {
-        if (sourceWarehouse === 'Main Warehouse') {
-            product.mainWarehouseStock -= quantity;
-        } else if (sourceWarehouse === 'Production Floor') {
-            product.productionFloorStock -= quantity;
+    try {
+        const res = await apiPost('/api/transfers', payload);
+        if (res && res.success) {
+            showToast('Transfer completed successfully', 'success', 3500);
+
+            // Clear inputs
+            if (qtyInput) qtyInput.value = '';
+            if (refInput) refInput.value = '';
+            if (notesInput) notesInput.value = '';
+            setDefaultTransferDate();
+            updateTransferSummary();
+
+            // Refresh state across all views
+            await Promise.allSettled([
+                loadTransfers(),
+                loadProducts(),
+                loadWarehouses(),
+                loadDashboardData(),
+                loadMovements()
+            ]);
+        } else {
+            const errMsg = (res && (res.error || res.message)) || 'Failed to complete stock transfer';
+            if (errorBox) {
+                errorBox.textContent = errMsg;
+                errorBox.style.display = 'block';
+            }
+            if (errMsg.toLowerCase().includes('insufficient') || errMsg.toLowerCase().includes('stock')) {
+                const stockBanner = document.getElementById('transfer-stock-warning');
+                if (stockBanner) stockBanner.style.display = 'flex';
+            }
+            showToast(errMsg, 'danger', 4000);
         }
-
-        if (destWarehouse === 'Main Warehouse') {
-            product.mainWarehouseStock += quantity;
-        } else if (destWarehouse === 'Production Floor') {
-            product.productionFloorStock += quantity;
+    } catch (err) {
+        console.error('Transfer API error:', err);
+        const errMsg = err.message || 'Server error while executing transfer';
+        if (errorBox) {
+            errorBox.textContent = errMsg;
+            errorBox.style.display = 'block';
         }
-
-        // Add to stock movements log
-        // In production: Replace with fetch('/api/movements', { method: 'POST', body: ... }) later
-        stockMovements.unshift({
-            id: newTransfer.id,
-            timestamp: 'Just now',
-            productName: product.name,
-            type: 'Transfer',
-            quantity: `${quantity}`,
-            route: `${sourceWarehouse} → ${destWarehouse}`,
-            user: 'Alex Morgan'
-        });
-
-        // Dashboard metrics (net stock delta is 0 for internal transfers)
-        updateDashboardMetrics(0);
+        showToast(errMsg, 'danger', 4000);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-right-left"></i> Execute Transfer';
+        }
     }
-
-    // Add to transfers dataset
-    transfersData.unshift(newTransfer);
-
-    // Refresh all views and tables
-    renderTransfersTable(getFilteredTransfers());
-    renderProductsTable(getFilteredProducts());
-    renderMovementsTable(stockMovements);
-    updateProductsMetrics();
-    updateTransfersMetrics();
-    updateTransferSummary();
-    updateReceiveSummary();
-    updateDeliverySummary();
-
-    // Clear form inputs
-    if (qtyInput) qtyInput.value = '';
-    if (refInput) refInput.value = '';
-    if (notesInput) notesInput.value = '';
-
-    // Success toast notification
-    showNotification('Transfer recorded successfully', 'success', 3500);
 }
 
 function clearTransferErrors() {
@@ -1903,10 +2295,11 @@ function populateAdjustmentDropdowns() {
         const curWarehouse = warehouseSelect.value || 'Main Warehouse';
         warehouseSelect.innerHTML = '';
         warehousesData.forEach(w => {
+            const name = typeof w === 'object' && w.name ? w.name : w;
             const opt = document.createElement('option');
-            opt.value = w;
-            opt.textContent = w;
-            if (w === curWarehouse) opt.selected = true;
+            opt.value = name;
+            opt.textContent = name;
+            if (name === curWarehouse) opt.selected = true;
             warehouseSelect.appendChild(opt);
         });
     }
@@ -1930,10 +2323,10 @@ function updateRecordedQuantity() {
     const warehouseSelect = document.getElementById('adjustment-warehouse');
     const recordedInput = document.getElementById('adjustment-recorded-qty');
 
-    const productId = productSelect ? Number(productSelect.value) : null;
+    const productId = productSelect ? productSelect.value : null;
     const warehouse = warehouseSelect ? warehouseSelect.value : 'Main Warehouse';
 
-    const product = productsData.find(p => p.id === productId);
+    const product = productsData.find(p => String(p.id) === String(productId));
     if (!product) {
         if (recordedInput) recordedInput.value = '';
         updateAdjustmentSummary();
@@ -1972,11 +2365,11 @@ function updateAdjustmentSummary() {
     const elProgressBar = document.getElementById('adjustment-progress-bar');
     const elImpact = document.getElementById('adjustment-summary-impact');
 
-    const productId = productSelect ? Number(productSelect.value) : null;
+    const productId = productSelect ? productSelect.value : null;
     const warehouse = warehouseSelect ? warehouseSelect.value : 'Main Warehouse';
     const reason = reasonSelect ? reasonSelect.value : '';
 
-    const product = productsData.find(p => p.id === productId);
+    const product = productsData.find(p => String(p.id) === String(productId));
 
     if (elWarehouse) elWarehouse.textContent = warehouse;
     if (elReason) elReason.textContent = reason ? `Reason: ${reason}` : 'Reason: Not selected';
@@ -2092,7 +2485,7 @@ function updateAdjustmentsMetrics() {
 /**
  * Handles Stock Adjustment Form Submission
  */
-function handleAdjustmentSubmit(e) {
+async function handleAdjustmentSubmit(e) {
     e.preventDefault();
 
     const productSelect = document.getElementById('adjustment-product');
@@ -2102,6 +2495,7 @@ function handleAdjustmentSubmit(e) {
     const dateInput = document.getElementById('adjustment-date');
     const notesInput = document.getElementById('adjustment-notes');
     const errorBox = document.getElementById('adjustment-form-error');
+    const submitBtn = document.getElementById('btn-submit-adjustment');
 
     const statusRadio = document.querySelector('input[name="adjustment-status"]:checked');
     const status = statusRadio ? statusRadio.value : 'Completed';
@@ -2111,32 +2505,32 @@ function handleAdjustmentSubmit(e) {
 
     let hasErrors = false;
 
-    const productId = Number(productSelect.value);
-    const product = productsData.find(p => p.id === productId);
+    const productId = productSelect ? productSelect.value : '';
+    const product = productsData.find(p => String(p.id) === String(productId));
     if (!productId || !product) {
         setFieldError('err-adjustment-product', productSelect, 'Please select a product');
         hasErrors = true;
     }
 
-    const warehouse = warehouseSelect.value;
+    const warehouse = warehouseSelect ? warehouseSelect.value : '';
     if (!warehouse) {
         setFieldError('err-adjustment-warehouse', warehouseSelect, 'Please select a warehouse location');
         hasErrors = true;
     }
 
-    const countedQty = Number(countedInput.value);
-    if (countedInput.value.trim() === '' || isNaN(countedQty) || countedQty < 0) {
+    const countedQty = Number(countedInput ? countedInput.value : 0);
+    if (!countedInput || countedInput.value.trim() === '' || isNaN(countedQty) || countedQty < 0) {
         setFieldError('err-adjustment-counted-qty', countedInput, 'Counted quantity must be a non-negative number (>= 0)');
         hasErrors = true;
     }
 
-    const reason = reasonSelect.value;
+    const reason = reasonSelect ? reasonSelect.value : '';
     if (!reason) {
         setFieldError('err-adjustment-reason', reasonSelect, 'Please select an adjustment reason');
         hasErrors = true;
     }
 
-    const adjDate = dateInput.value;
+    const adjDate = dateInput ? dateInput.value : '';
     if (!adjDate) {
         setFieldError('err-adjustment-date', dateInput, 'Please select an adjustment date');
         hasErrors = true;
@@ -2150,75 +2544,64 @@ function handleAdjustmentSubmit(e) {
         return;
     }
 
-    const recordedStock = warehouse === 'Main Warehouse'
-        ? Number(product.mainWarehouseStock || 0)
-        : Number(product.productionFloorStock || 0);
-
-    const difference = countedQty - recordedStock;
-
-    // Construct new Adjustment record
-    const newAdjustment = {
-        id: `ADJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        productId: product.id,
-        productName: product.name,
-        productSku: product.sku,
-        warehouse: warehouse,
-        recordedQty: recordedStock,
-        countedQty: countedQty,
-        difference: difference,
-        unit: product.unit,
-        reason: reason,
-        date: adjDate,
-        status: status,
-        notes: notesInput ? notesInput.value.trim() : ''
-    };
-
-    // Overwrite sample stock data so final stock matches counted quantity!
-    // In production: Replace with fetch('/api/adjustments', { method: 'POST', body: JSON.stringify(newAdjustment) }) later
-    if (status === 'Completed') {
-        if (warehouse === 'Main Warehouse') {
-            product.mainWarehouseStock = countedQty;
-        } else if (warehouse === 'Production Floor') {
-            product.productionFloorStock = countedQty;
-        }
-
-        // Add to recent stock movements log
-        // In production: Replace with fetch('/api/movements', { method: 'POST', body: ... }) later
-        stockMovements.unshift({
-            id: newAdjustment.id,
-            timestamp: 'Just now',
-            productName: product.name,
-            type: 'Adjustment',
-            quantity: difference >= 0 ? `+${difference}` : `${difference}`,
-            route: `${warehouse} (${reason})`,
-            user: 'Alex Morgan'
-        });
-
-        // Update dashboard metrics with difference delta
-        updateDashboardMetrics(difference);
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
     }
 
-    // Add adjustment to data array
-    adjustmentsData.unshift(newAdjustment);
+    const payload = {
+        productId: String(product.id),
+        warehouse: warehouse,
+        countedQty: countedQty,
+        reason: reason,
+        date: adjDate,
+        notes: notesInput ? notesInput.value.trim() : '',
+        status: status
+    };
 
-    // Refresh UI across all views
-    renderAdjustmentsTable(getFilteredAdjustments());
-    renderProductsTable(getFilteredProducts());
-    renderMovementsTable(stockMovements);
-    updateProductsMetrics();
-    updateAdjustmentsMetrics();
-    updateRecordedQuantity();
-    updateAdjustmentSummary();
-    updateReceiveSummary();
-    updateDeliverySummary();
-    updateTransferSummary();
+    try {
+        const res = await apiPost('/api/adjustments', payload);
+        if (res && res.success) {
+            showToast('Stock adjusted successfully', 'success', 3500);
 
-    // Clear item inputs for next count
-    if (countedInput) countedInput.value = '';
-    if (notesInput) notesInput.value = '';
+            // Clear inputs
+            if (countedInput) countedInput.value = '';
+            if (notesInput) notesInput.value = '';
+            setDefaultAdjustmentDate();
+            updateRecordedQuantity();
+            updateAdjustmentSummary();
 
-    // Show temporary success toast
-    showNotification('Stock adjusted successfully', 'success', 3500);
+            // Refresh state across all views
+            await Promise.allSettled([
+                loadAdjustments(),
+                loadProducts(),
+                loadWarehouses(),
+                loadDashboardData(),
+                loadMovements(),
+                loadLowStockAlerts()
+            ]);
+        } else {
+            const errMsg = (res && (res.error || res.message)) || 'Failed to apply stock adjustment';
+            if (errorBox) {
+                errorBox.textContent = errMsg;
+                errorBox.style.display = 'block';
+            }
+            showToast(errMsg, 'danger', 4000);
+        }
+    } catch (err) {
+        console.error('Adjustment API error:', err);
+        const errMsg = err.message || 'Server error while applying adjustment';
+        if (errorBox) {
+            errorBox.textContent = errMsg;
+            errorBox.style.display = 'block';
+        }
+        showToast(errMsg, 'danger', 4000);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-sliders"></i> Apply Adjustment';
+        }
+    }
 }
 
 function clearAdjustmentErrors() {
@@ -2694,7 +3077,7 @@ function updateReceiptsMetrics() {
     if (elUnits) elUnits.textContent = totalUnits.toLocaleString();
 }
 
-function handleReceiveStockSubmit(e) {
+async function handleReceiveStockSubmit(e) {
     e.preventDefault();
 
     const supplierSelect = document.getElementById('receive-supplier');
@@ -2726,8 +3109,8 @@ function handleReceiveStockSubmit(e) {
         hasErrors = true;
     }
 
-    const productId = Number(productSelect.value);
-    const product = productsData.find(p => p.id === productId);
+    const productId = productSelect ? productSelect.value : '';
+    const product = productsData.find(p => String(p.id) === String(productId));
     if (!productId || !product) {
         setFieldError('err-receive-product', productSelect, 'Please select a product');
         hasErrors = true;
@@ -2759,56 +3142,39 @@ function handleReceiveStockSubmit(e) {
         return;
     }
 
-    const newReceipt = {
-        id: `REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        supplier: supplier,
-        productId: product.id,
-        productName: product.name,
-        productSku: product.sku,
-        warehouse: warehouse,
-        quantity: quantity,
-        unit: product.unit,
-        unitCost: unitCost,
-        date: receiptDate,
-        notes: notesInput ? notesInput.value.trim() : '',
-        status: status
-    };
-
-    if (status === 'Completed') {
-        if (warehouse === 'Main Warehouse') {
-            product.mainWarehouseStock += quantity;
-        } else if (warehouse === 'Production Floor') {
-            product.productionFloorStock += quantity;
-        }
-
-        stockMovements.unshift({
-            id: newReceipt.id,
-            timestamp: 'Just now',
-            productName: product.name,
-            type: 'Receipt',
-            quantity: `+${quantity}`,
-            route: `${supplier} → ${warehouse}`,
-            user: 'Alex Morgan'
+    try {
+        const res = await apiPost('/api/receipts', {
+            supplier: supplier,
+            productId: product.id,
+            warehouse: warehouse,
+            quantity: quantity,
+            unitCost: unitCost,
+            date: receiptDate,
+            notes: notesInput ? notesInput.value.trim() : '',
+            status: status
         });
 
-        updateDashboardMetrics(quantity);
+        const recId = (res && res.data && res.data.id) || 'Recorded';
+        showNotification(`Stock received successfully: ${recId}`, 'success', 3500);
+
+        if (qtyInput) qtyInput.value = '';
+        if (costInput) costInput.value = '';
+        if (notesInput) notesInput.value = '';
+
+        await Promise.allSettled([
+            loadReceipts(),
+            loadProducts(),
+            loadDashboardData(),
+            loadMovements(),
+            loadLowStockAlerts()
+        ]);
+    } catch (err) {
+        if (errorBox) {
+            errorBox.textContent = err.message || 'Failed to record receipt on server';
+            errorBox.style.display = 'block';
+        }
+        showNotification(err.message || 'Failed to record stock receipt', 'danger', 4000);
     }
-
-    receiptsData.unshift(newReceipt);
-
-    renderReceiptsTable(getFilteredReceipts());
-    renderProductsTable(getFilteredProducts());
-    renderMovementsTable(stockMovements);
-    updateProductsMetrics();
-    updateReceiptsMetrics();
-    updateReceiveSummary();
-    updateDeliverySummary();
-
-    if (qtyInput) qtyInput.value = '';
-    if (costInput) costInput.value = '';
-    if (notesInput) notesInput.value = '';
-
-    showNotification('Stock received successfully', 'success', 3500);
 }
 
 function clearReceiveErrors() {
@@ -3133,7 +3499,7 @@ function setupForms() {
     if (resetAdjBtn) resetAdjBtn.addEventListener('click', resetAdjustmentForm);
 }
 
-function handleAddProductSubmit(e) {
+async function handleAddProductSubmit(e) {
     e.preventDefault();
 
     const nameInput = document.getElementById('add-product-name');
@@ -3159,12 +3525,6 @@ function handleAddProductSubmit(e) {
     if (!sku) {
         setFieldError('err-add-sku', skuInput, 'SKU code is required');
         hasErrors = true;
-    } else {
-        const isDuplicate = productsData.some(p => p.sku.toUpperCase() === sku);
-        if (isDuplicate) {
-            setFieldError('err-add-sku', skuInput, `SKU "${sku}" already exists in the catalog`);
-            hasErrors = true;
-        }
     }
 
     const category = categorySelect.value;
@@ -3205,29 +3565,34 @@ function handleAddProductSubmit(e) {
         return;
     }
 
-    const mainStock = warehouse === 'Main Warehouse' ? initialStock : 0;
-    const prodStock = warehouse === 'Production Floor' ? initialStock : 0;
+    try {
+        const res = await apiPost('/api/products', {
+            name: name,
+            sku: sku,
+            category: category,
+            unit: unit,
+            reorderLevel: reorderLevel,
+            initialStock: initialStock,
+            warehouse: warehouse
+        });
 
-    const newProduct = {
-        id: Date.now(),
-        name: name,
-        sku: sku,
-        category: category,
-        unit: unit,
-        mainWarehouseStock: mainStock,
-        productionFloorStock: prodStock,
-        reorderLevel: reorderLevel
-    };
+        closeModal('modal-add-product');
+        resetAddForm();
+        showNotification(`Product "${name}" (${sku}) added successfully!`, 'success', 3500);
 
-    productsData.unshift(newProduct);
-    renderProductsTable(getFilteredProducts());
-    updateProductsMetrics();
-    populateReceiveProductDropdown();
-    populateDeliveryProductDropdown();
-    closeModal('modal-add-product');
-    resetAddForm();
-
-    showNotification(`Product "${newProduct.name}" (${newProduct.sku}) added successfully!`, 'success', 3500);
+        await Promise.allSettled([
+            loadProducts(),
+            loadDashboardData(),
+            loadMovements(),
+            loadWarehouses()
+        ]);
+    } catch (err) {
+        if (errorBox) {
+            errorBox.textContent = err.message || 'Failed to create product on server';
+            errorBox.style.display = 'block';
+        }
+        showNotification(err.message || 'Failed to add product', 'danger', 4000);
+    }
 }
 
 function openEditModal(productId) {
@@ -3250,7 +3615,7 @@ function openEditModal(productId) {
     openModal('modal-edit-product');
 }
 
-function handleEditProductSubmit(e) {
+async function handleEditProductSubmit(e) {
     e.preventDefault();
 
     const idInput = document.getElementById('edit-product-id');
@@ -3266,8 +3631,8 @@ function handleEditProductSubmit(e) {
     clearFormErrors('edit');
     if (errorBox) errorBox.style.display = 'none';
 
-    const productId = Number(idInput.value);
-    const productIndex = productsData.findIndex(p => p.id === productId);
+    const productId = idInput.value;
+    const productIndex = productsData.findIndex(p => String(p.id) === String(productId));
 
     if (productIndex === -1) {
         showNotification('Product not found.', 'danger');
@@ -3332,26 +3697,32 @@ function handleEditProductSubmit(e) {
         return;
     }
 
-    productsData[productIndex] = {
-        ...productsData[productIndex],
-        name: name,
-        sku: sku,
-        category: category,
-        unit: unit,
-        reorderLevel: reorderLevel,
-        mainWarehouseStock: mainStock,
-        productionFloorStock: prodStock
-    };
+    try {
+        await apiPut(`/api/products/${productId}`, {
+            name: name,
+            sku: sku,
+            category: category,
+            unit: unit,
+            reorderLevel: reorderLevel,
+            mainWarehouseStock: mainStock,
+            productionFloorStock: prodStock
+        });
 
-    renderProductsTable(getFilteredProducts());
-    updateProductsMetrics();
-    populateReceiveProductDropdown();
-    populateDeliveryProductDropdown();
-    updateReceiveSummary();
-    updateDeliverySummary();
-    closeModal('modal-edit-product');
+        closeModal('modal-edit-product');
+        showNotification(`Product "${name}" (${sku}) updated successfully!`, 'success', 3500);
 
-    showNotification(`Product "${name}" (${sku}) updated successfully!`, 'success', 3500);
+        await Promise.allSettled([
+            loadProducts(),
+            loadDashboardData(),
+            loadWarehouses()
+        ]);
+    } catch (err) {
+        if (errorBox) {
+            errorBox.textContent = err.message || 'Failed to update product on server';
+            errorBox.style.display = 'block';
+        }
+        showNotification(err.message || 'Failed to update product', 'danger', 4000);
+    }
 }
 
 function openDeleteConfirmModal(productId) {
@@ -3368,24 +3739,27 @@ function openDeleteConfirmModal(productId) {
     openModal('modal-delete-confirm');
 }
 
-function executeProductDelete() {
+async function executeProductDelete() {
     if (!productPendingDeleteId) return;
 
+    const idToDelete = productPendingDeleteId;
     const product = productsData.find(p => p.id === productPendingDeleteId);
     const productName = product ? product.name : 'Product';
 
-    productsData = productsData.filter(p => p.id !== productPendingDeleteId);
-    productPendingDeleteId = null;
+    try {
+        await apiDelete(`/api/products/${idToDelete}`);
+        productPendingDeleteId = null;
+        closeModal('modal-delete-confirm');
+        showNotification(`Product "${productName}" has been removed from inventory.`, 'success', 3500);
 
-    closeModal('modal-delete-confirm');
-    renderProductsTable(getFilteredProducts());
-    updateProductsMetrics();
-    populateReceiveProductDropdown();
-    populateDeliveryProductDropdown();
-    updateReceiveSummary();
-    updateDeliverySummary();
-
-    showNotification(`Product "${productName}" has been removed from inventory.`, 'success', 3500);
+        await Promise.allSettled([
+            loadProducts(),
+            loadDashboardData(),
+            loadWarehouses()
+        ]);
+    } catch (err) {
+        showNotification(err.message || 'Failed to delete product on server', 'danger', 4000);
+    }
 }
 
 function resetAddForm() {
@@ -3462,6 +3836,17 @@ function renderLowStockTable(products) {
     }
 
     products.forEach(item => {
+        const currentQty = item.currentQty !== undefined ? item.currentQty : (item.totalStock !== undefined ? item.totalStock : 0);
+        let whLabel = item.warehouse;
+        if (!whLabel) {
+            const main = item.mainWarehouseStock || 0;
+            const floor = item.productionFloorStock || 0;
+            if (main > 0 && floor > 0) whLabel = "Multiple Facilities";
+            else if (floor > 0) whLabel = "Production Floor";
+            else if (currentQty === 0) whLabel = "All Facilities (Out of Stock)";
+            else whLabel = "Main Warehouse";
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
@@ -3476,17 +3861,17 @@ function renderLowStockTable(products) {
             <td>
                 <span class="warehouse-tag">
                     <i class="fa-solid fa-location-dot"></i>
-                    ${escapeHtml(item.warehouse)}
+                    ${escapeHtml(whLabel)}
                 </span>
             </td>
             <td class="text-right">
-                <span class="qty-danger">${item.currentQty}</span>
+                <span class="qty-danger">${currentQty}</span>
             </td>
             <td class="text-right">
                 <span class="reorder-level-val">${item.reorderLevel}</span>
             </td>
             <td class="text-center">
-                <span class="badge badge-reorder">${escapeHtml(item.status)}</span>
+                <span class="badge badge-reorder">${escapeHtml(item.status || 'Low Stock')}</span>
             </td>
             <td class="text-center">
                 <button class="btn btn-danger-outline btn-reorder-item" 
@@ -3528,7 +3913,10 @@ function renderMovementsTable(movements) {
     }
 
     movements.forEach(m => {
-        const badgeClass = getMovementBadgeClass(m.type);
+        const badgeClass = getMovementBadgeClass(m.type || 'Transfer');
+        const timestamp = m.timestamp || (m.createdAt ? m.createdAt.slice(0, 16).replace('T', ' ') : m.date) || 'Recent';
+        const route = m.route || m.warehouse || (m.source && m.destination ? `${m.source} → ${m.destination}` : 'Warehouse');
+        const quantityVal = m.quantityDisplay !== undefined ? m.quantityDisplay : m.quantity;
         const tr = document.createElement('tr');
 
         tr.innerHTML = `
@@ -3536,7 +3924,7 @@ function renderMovementsTable(movements) {
                 <strong class="sku-badge">${escapeHtml(m.id)}</strong>
             </td>
             <td>
-                <span class="product-cat-txt">${escapeHtml(m.timestamp)}</span>
+                <span class="product-cat-txt">${escapeHtml(timestamp)}</span>
             </td>
             <td>
                 <span class="product-name-txt">${escapeHtml(m.productName)}</span>
@@ -3545,16 +3933,16 @@ function renderMovementsTable(movements) {
                 <span class="badge ${badgeClass}">${escapeHtml(m.type)}</span>
             </td>
             <td class="text-right">
-                <span class="qty-val ${m.type === 'Delivery' ? 'text-danger' : 'text-success'}">${escapeHtml(m.quantity)}</span>
+                <span class="qty-val ${m.type === 'Delivery' ? 'text-danger' : 'text-success'}">${escapeHtml(String(quantityVal))}</span>
             </td>
             <td>
                 <span class="warehouse-tag">
                     <i class="fa-solid fa-route"></i>
-                    ${escapeHtml(m.route)}
+                    ${escapeHtml(route)}
                 </span>
             </td>
             <td>
-                <span class="product-cat-txt">${escapeHtml(m.user)}</span>
+                <span class="product-cat-txt">${escapeHtml(m.user || 'Alex Morgan')}</span>
             </td>
             <td class="text-center">
                 <button class="icon-btn-subtle btn-view-slip" data-id="${escapeHtml(m.id)}" title="View Movement Slip">
@@ -3869,6 +4257,10 @@ let movementSortState = {
 
 // In production: Replace with fetch('/api/movements') or Firestore collection query
 function getAllMovements() {
+    if (stockMovements && stockMovements.length > 0 && stockMovements[0].destination !== undefined) {
+        return stockMovements;
+    }
+
     const list = [];
 
     // Map receiptsData
